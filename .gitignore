@@ -1,0 +1,31 @@
+# Dependencies (Thư mục này siêu nặng, tuyệt đối không đưa lên)
+node_modules/
+dist/
+build/
+
+# Python (Dành cho Backend FastAPI của bạn sau này)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+
+# Vite/React
+.vite/
+.eslintcache
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Hệ điều hành (File rác của Windows/Mac)
+.DS_Store
+Thumbs.db
+
+# IDE (Cấu hình riêng của VS Code)
+.vscode/
+.idea/
