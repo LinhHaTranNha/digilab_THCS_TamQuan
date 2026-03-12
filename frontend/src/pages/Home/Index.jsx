@@ -1,6 +1,14 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const HomePage = () => {
+  const categories = [
+    { n: 'Ebooks', i: '📖', c: 'bg-blue-50', path: '/library' },
+    { n: 'Đề thi & Đề cương', i: '📝', c: 'bg-green-50', path: '/exams' },
+    { n: 'Slide Bài giảng', i: '💻', c: 'bg-yellow-50', path: '/library' },
+    { n: 'Góc Tặng sách', i: '🎁', c: 'bg-pink-50', path: '/donation' },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
@@ -20,16 +28,15 @@ const HomePage = () => {
       {/* Categories */}
       <section className="max-w-7xl mx-auto py-16 px-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {[
-            { n: 'Ebooks', i: '📖', c: 'bg-blue-50' },
-            { n: 'Đề thi & Đề cương', i: '📝', c: 'bg-green-50' },
-            { n: 'Slide Bài giảng', i: '💻', c: 'bg-yellow-50' },
-            { n: 'Góc Tặng sách', i: '🎁', c: 'bg-pink-50' },
-          ].map((item, idx) => (
-            <div key={idx} className={`${item.c} p-10 rounded-3xl text-center hover:scale-105 transition transform cursor-pointer border border-transparent hover:border-blue-200`}>
+          {categories.map((item, idx) => (
+            <Link 
+              key={idx} 
+              to={item.path} 
+              className={`${item.c} p-10 rounded-3xl text-center transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 cursor-pointer border border-transparent hover:border-blue-200 hover:shadow-xl block`}
+            >
               <div className="text-5xl mb-4">{item.i}</div>
               <h3 className="font-bold text-gray-800 text-lg">{item.n}</h3>
-            </div>
+            </Link>
           ))}
         </div>
       </section>

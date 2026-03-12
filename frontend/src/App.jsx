@@ -7,10 +7,12 @@ import DonationPage from './pages/Donation/Index';
 import LoginPage from './pages/Auth/Login';
 import RegisterPage from './pages/Auth/Register';
 import ExamPage from './pages/Exam/Index';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <div className="min-h-screen bg-white">
         <Header />
         <Routes>
