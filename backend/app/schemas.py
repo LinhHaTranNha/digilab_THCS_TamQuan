@@ -22,12 +22,12 @@ class UserResponse(ApiSchema):
     created_at: datetime
 
 
-class AuthLoginRequest(BaseModel):
+class AuthLoginRequest(ApiSchema):
     identifier: str
     password: str
 
 
-class AuthRegisterRequest(BaseModel):
+class AuthRegisterRequest(ApiSchema):
     full_name: str
     student_id: str
     grade: str
@@ -58,7 +58,7 @@ class DocumentResponse(ApiSchema):
     updated_at: datetime
 
 
-class DocumentCreateRequest(BaseModel):
+class DocumentCreateRequest(ApiSchema):
     title: str
     description: str
     author: str
@@ -74,7 +74,7 @@ class DocumentUpdateRequest(DocumentCreateRequest):
     pass
 
 
-class DonationCreateRequest(BaseModel):
+class DonationCreateRequest(ApiSchema):
     full_name: str
     book_name: str
     grade: str

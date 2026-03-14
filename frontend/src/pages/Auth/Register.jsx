@@ -20,6 +20,11 @@ const RegisterPage = () => {
     e.preventDefault();
     setError('');
 
+    if (formData.password.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự.');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Mật khẩu xác nhận không khớp.');
       return;
@@ -103,6 +108,7 @@ const RegisterPage = () => {
               <input
                 type="password"
                 required
+                minLength={6}
                 value={formData.password}
                 className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="********"
@@ -115,6 +121,7 @@ const RegisterPage = () => {
               <input
                 type="password"
                 required
+                minLength={6}
                 value={formData.confirmPassword}
                 className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="********"
