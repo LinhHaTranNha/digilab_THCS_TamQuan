@@ -1,7 +1,7 @@
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 
 const ACCESS_TOKEN_KEY = 'digital-library-access-token';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8001/api';
 
 export const ROLE_LABELS = {
   school: 'Nhà trường',

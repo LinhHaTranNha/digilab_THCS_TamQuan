@@ -43,13 +43,17 @@ npm install
 
 ## Bien moi truong
 
-Neu can doi API URL, tao file `frontend/.env`:
+Frontend da implement API backend that qua `src/services/apiService.js`.
+
+URL backend mac dinh duoc cau hinh tai `src/config/api.js`.
+
+Neu can doi theo moi truong, copy `frontend/.env.example` thanh `frontend/.env` va sua:
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8001/api
 ```
 
-Neu khong tao file nay, frontend mac dinh goi API local.
+Neu khong tao file nay, frontend mac dinh goi `http://127.0.0.1:8001/api`.
 
 ## Chay frontend
 
@@ -70,6 +74,9 @@ npm run build
 ```
 
 ## Thanh phan quan trong
+
+- `src/config/api.js`
+  Noi cau hinh URL mac dinh cua backend va doc `VITE_API_BASE_URL`
 
 - `src/services/apiService.js`
   Chua toan bo ham goi API va xu ly token trong `sessionStorage`
@@ -116,11 +123,12 @@ npm run build
 
 ## Thu tu sua frontend an toan
 
-1. Neu doi nghiep vu API, sua `src/services/apiService.js` truoc.
-2. Neu doi auth, sua `src/store/AuthContext.jsx`.
-3. Neu doi route, sua `src/App.jsx`.
-4. Neu doi UI, sua page/component lien quan.
-5. Chay `npm run build` sau moi dot thay doi lon.
+1. Neu doi URL backend, sua `src/config/api.js` hoac `frontend/.env` truoc.
+2. Neu doi nghiep vu API, sua `src/services/apiService.js` truoc.
+3. Neu doi auth, sua `src/store/AuthContext.jsx`.
+4. Neu doi route, sua `src/App.jsx`.
+5. Neu doi UI, sua page/component lien quan.
+6. Chay `npm run build` sau moi dot thay doi lon.
 
 ## Ghi chu ban giao
 

@@ -66,6 +66,7 @@ class Settings:
     api_prefix: str = '/api'
     secret_key: str = 'digital-library-secret-key'
     database_url: str = ''
+    cors_origin_regex: str = r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$'
     cors_origins: list[str] = field(default_factory=lambda: [
         'http://localhost:5173',
         'http://127.0.0.1:5173',
@@ -91,5 +92,6 @@ def get_settings() -> Settings:
         api_prefix=os.getenv('API_PREFIX') or env_values.get('API_PREFIX', '/api'),
         secret_key=os.getenv('SECRET_KEY') or env_values.get('SECRET_KEY', 'digital-library-secret-key'),
         database_url=database_url,
+        cors_origin_regex=os.getenv('CORS_ORIGIN_REGEX') or env_values.get('CORS_ORIGIN_REGEX', r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$'),
         cors_origins=parse_cors_origins(os.getenv('CORS_ORIGINS') or env_values.get('CORS_ORIGINS')),
     )

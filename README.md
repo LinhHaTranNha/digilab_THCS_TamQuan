@@ -95,6 +95,10 @@ Luu y:
 
 ### Frontend
 
+Frontend da goi backend that qua `frontend/src/services/apiService.js`.
+
+Noi cau hinh URL mac dinh cua backend la `frontend/src/config/api.js`.
+
 Co the tao file `frontend/.env` neu muon doi API URL:
 
 ```env
@@ -185,9 +189,10 @@ Muc nay dung de ban giao cho nguoi tiep theo hoac de giu quy trinh lam viec on d
 4. Xac nhan `GET http://127.0.0.1:8001/health` tra ve `ok`.
 5. Neu tinh nang lien quan database, cap nhat model trong `backend/app/models.py`.
 6. Neu co thay doi contract API, cap nhat schema trong `backend/app/schemas.py` va route trong `backend/app/api/`.
-7. Neu frontend can du lieu moi, cap nhat `frontend/src/services/apiService.js` truoc.
-8. Sau do moi cap nhat page, component hoac auth context ben frontend.
-9. Chay build frontend va test API co ban truoc khi ban giao.
+7. Neu can doi URL backend, sua `frontend/src/config/api.js` hoac `frontend/.env` truoc.
+8. Neu frontend can du lieu moi, cap nhat `frontend/src/services/apiService.js`.
+9. Sau do moi cap nhat page, component hoac auth context ben frontend.
+10. Chay build frontend va test API co ban truoc khi ban giao.
 
 ### Quy trinh sua frontend
 
