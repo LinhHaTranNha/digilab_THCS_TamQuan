@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.dependencies import get_current_user
 from app.models import Document, User
-from app.schemas import DocumentCreateRequest, DocumentResponse, DocumentUpdateRequest
+from app.schemas import DocumentCreateRequest, DocumentResponse, DocumentUpdateRequest, model_validate_compat
 
 
 router = APIRouter(prefix='/documents', tags=['documents'])
@@ -52,7 +52,7 @@ def list_documents(
                 continue
         filtered.append(document)
 
-    return [DocumentResponse.model_validate(document) for document in filtered]
+    return [model_validate_compat(DocumentResponse, document) for document in filtered]
 
 
 @router.get('/subjects', response_model=list[str])
@@ -69,7 +69,7 @@ def get_document(document_id: str, db: Annotated[Session, Depends(get_db)]) -> D
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Không tìm thấy tài liệu.')
 
-    return DocumentResponse.model_validate(document)
+    return model_validate_compat(DocumentResponse, document)
 
 
 @router.post('', response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
@@ -98,7 +98,7 @@ def create_document(
     db.add(document)
     db.commit()
     db.refresh(document)
-    return DocumentResponse.model_validate(document)
+    return model_validate_compat(DocumentResponse, document)
 
 
 @router.put('/{document_id}', response_model=DocumentResponse)
@@ -129,7 +129,7 @@ def update_document(
     document.pdf_url = payload.pdf_url.strip()
     db.commit()
     db.refresh(document)
-    return DocumentResponse.model_validate(document)
+    return model_validate_compat(DocumentResponse, document)
 
 
 @router.delete('/{document_id}', status_code=status.HTTP_204_NO_CONTENT)

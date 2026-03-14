@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.dependencies import get_current_user
 from app.models import User
-from app.schemas import AuthLoginRequest, AuthRegisterRequest, AuthResponse, UserResponse
+from app.schemas import AuthLoginRequest, AuthRegisterRequest, AuthResponse, UserResponse, model_validate_compat
 from app.security import create_access_token, verify_password, hash_password
 
 
@@ -25,7 +25,7 @@ def login(payload: AuthLoginRequest, db: Annotated[Session, Depends(get_db)]) ->
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Sai thông tin đăng nhập.')
 
-    return AuthResponse(access_token=create_access_token(user.id), user=UserResponse.model_validate(user))
+    return AuthResponse(access_token=create_access_token(user.id), user=model_validate_compat(UserResponse, user))
 
 
 @router.post('/register', response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -53,9 +53,9 @@ def register(payload: AuthRegisterRequest, db: Annotated[Session, Depends(get_db
     db.commit()
     db.refresh(user)
 
-    return AuthResponse(access_token=create_access_token(user.id), user=UserResponse.model_validate(user))
+    return AuthResponse(access_token=create_access_token(user.id), user=model_validate_compat(UserResponse, user))
 
 
 @router.get('/me', response_model=UserResponse)
 def me(current_user: Annotated[User, Depends(get_current_user)]) -> UserResponse:
-    return UserResponse.model_validate(current_user)
+    return model_validate_compat(UserResponse, current_user)

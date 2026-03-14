@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.dependencies import get_current_user, require_roles
 from app.models import Donation, User
-from app.schemas import DonationCreateRequest, DonationResponse
+from app.schemas import DonationCreateRequest, DonationResponse, model_validate_compat
 
 
 router = APIRouter(prefix='/donations', tags=['donations'])
@@ -19,7 +19,7 @@ def list_donations(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[DonationResponse]:
     donations = db.scalars(select(Donation).order_by(Donation.created_at.desc())).all()
-    return [DonationResponse.model_validate(donation) for donation in donations]
+    return [model_validate_compat(DonationResponse, donation) for donation in donations]
 
 
 @router.post('', response_model=DonationResponse, status_code=status.HTTP_201_CREATED)
@@ -41,4 +41,4 @@ def create_donation(
     db.add(donation)
     db.commit()
     db.refresh(donation)
-    return DonationResponse.model_validate(donation)
+    return model_validate_compat(DonationResponse, donation)

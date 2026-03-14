@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 def to_camel(value: str) -> str:
@@ -9,7 +9,17 @@ def to_camel(value: str) -> str:
 
 
 class ApiSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True, alias_generator=to_camel, populate_by_name=True)
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+        alias_generator = to_camel
+
+
+def model_validate_compat(schema_class: type[BaseModel], value: object) -> BaseModel:
+    model_validate = getattr(schema_class, 'model_validate', None)
+    if callable(model_validate):
+        return model_validate(value)
+    return schema_class.from_orm(value)
 
 
 class UserResponse(ApiSchema):
