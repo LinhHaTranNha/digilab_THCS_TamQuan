@@ -110,3 +110,13 @@ class DonationResponse(ApiSchema):
     submitted_by_id: str
     submitted_by_role: str
     created_at: datetime
+
+
+# Chat schemas
+class ChatRequest(ApiSchema):
+    message: str
+
+
+class ChatResponse(ApiSchema):
+    reply: str
+    sources: list[str] | None = None

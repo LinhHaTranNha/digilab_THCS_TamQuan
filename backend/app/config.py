@@ -73,6 +73,9 @@ class Settings:
         'http://localhost:4173',
         'http://127.0.0.1:4173',
     ])
+    nvidia_api_key: str = ''
+    nvidia_base_url: str = 'https://integrate.api.nvidia.com/v1'
+    nvidia_model: str = 'meta/llama-3.1-8b-instruct'
 
     @property
     def sqlalchemy_database_url(self) -> str:
@@ -94,4 +97,7 @@ def get_settings() -> Settings:
         database_url=database_url,
         cors_origin_regex=os.getenv('CORS_ORIGIN_REGEX') or env_values.get('CORS_ORIGIN_REGEX', r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$'),
         cors_origins=parse_cors_origins(os.getenv('CORS_ORIGINS') or env_values.get('CORS_ORIGINS')),
+        nvidia_api_key=os.getenv('NVIDIA_API_KEY') or env_values.get('NVIDIA_API_KEY', ''),
+        nvidia_base_url=os.getenv('NVIDIA_BASE_URL') or env_values.get('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'),
+        nvidia_model=os.getenv('NVIDIA_MODEL') or env_values.get('NVIDIA_MODEL', 'meta/llama-3.1-8b-instruct'),
     )

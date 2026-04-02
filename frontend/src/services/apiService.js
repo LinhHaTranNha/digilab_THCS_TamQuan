@@ -138,6 +138,11 @@ export async function saveDonation(payload) {
   return data;
 }
 
+export async function sendChatMessage(message) {
+  const { data } = await apiClient.post('/chat', { message });
+  return data;
+}
+
 export function getSectionLabel(section) {
   const labels = {
     library: 'Thư viện',

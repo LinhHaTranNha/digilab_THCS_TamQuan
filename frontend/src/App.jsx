@@ -12,6 +12,7 @@ import SlidePage from './pages/Slides/Index';
 import DocumentDetailPage from './pages/Documents/Detail';
 import ManagePage from './pages/Manage/Index';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import ChatWidget from './components/common/ChatWidget';
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
             )}
           />
         </Routes>
+        <ChatWidget />
       </div>
     </Router>
   );
