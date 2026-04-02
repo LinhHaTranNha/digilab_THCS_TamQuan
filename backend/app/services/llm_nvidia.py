@@ -36,7 +36,7 @@ def chat_with_nvidia(user_message: str, context: str | None = None) -> str:
             {'role': 'user', 'content': user_content},
         ],
         'temperature': 0.2,
-        'max_tokens': 500,
+        'max_tokens': 300,
     }
 
     headers = {
@@ -47,7 +47,7 @@ def chat_with_nvidia(user_message: str, context: str | None = None) -> str:
     url = f"{settings.nvidia_base_url.rstrip('/')}/chat/completions"
 
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=60.0) as client:
             response = client.post(url, headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()

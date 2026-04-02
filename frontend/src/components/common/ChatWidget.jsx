@@ -2,6 +2,36 @@ import React, { useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
 import { getApiErrorMessage, sendChatMessage } from '../../services/apiService';
 
+function renderMessageText(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, idx) => {
+    if (part.startsWith('http://') || part.startsWith('https://')) {
+      return (
+        <a
+          key={`link-${idx}`}
+          href={part}
+          target="_blank"
+          rel="noreferrer"
+          className="text-blue-600 underline break-all hover:text-blue-700 transition-colors"
+        >
+          {part}
+        </a>
+      );
+    }
+
+    // Preserve newlines by splitting again and adding <br/>
+    const subParts = part.split('\n');
+    return subParts.map((sub, sIdx) => (
+      <React.Fragment key={`sub-${idx}-${sIdx}`}>
+        {sub}
+        {sIdx < subParts.length - 1 && <br className="mb-1" />}
+      </React.Fragment>
+    ));
+  });
+}
+
 function ChatWidget() {
   const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -50,7 +80,7 @@ function ChatWidget() {
   return (
     <div className="fixed bottom-5 right-5 z-50">
       {isOpen ? (
-        <div className="w-80 sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+        <div className="w-80 sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden text-slate-800">
           <div className="px-4 py-3 bg-blue-600 text-white flex items-center justify-between">
             <div>
               <p className="font-semibold">Trợ lý thư viện số</p>
@@ -69,13 +99,13 @@ function ChatWidget() {
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
-                className={`max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed ${
+                className={`max-w-[90%] px-3 py-2 rounded-xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
                   message.role === 'user'
                     ? 'ml-auto bg-blue-600 text-white'
                     : 'bg-white border border-slate-200 text-slate-700'
                 }`}
               >
-                {message.text}
+                {renderMessageText(message.text)}
               </div>
             ))}
             {sending && (

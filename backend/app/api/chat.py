@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -58,7 +58,17 @@ def detect_section(message: str) -> str | None:
     return None
 
 
-def build_document_context(db: Session, message: str) -> tuple[str, list[str]]:
+def is_document_search_intent(message: str) -> bool:
+    lower = message.lower()
+    hints = [
+        'tài liệu', 'tai lieu', 'đề', 'de thi', 'đề thi', 'đề cương', 'de cuong',
+        'slide', 'ebook', 'môn', 'mon', 'lớp', 'lop', 'toán', 'văn', 'anh',
+        'lý', 'ly', 'hóa', 'hoa', 'sinh', 'sử', 'su', 'địa', 'dia', 'tin',
+    ]
+    return any(h in lower for h in hints)
+
+
+def build_document_context(db: Session, message: str) -> tuple[str | None, list[str]]:
     docs = db.scalars(select(Document).order_by(Document.created_at.desc())).all()
 
     subject = detect_subject(message)
@@ -75,19 +85,15 @@ def build_document_context(db: Session, message: str) -> tuple[str, list[str]]:
         if section and doc.section != section:
             continue
 
-        if keyword:
+        if keyword and not (subject or grade or section):
             haystack = f"{doc.title} {doc.description} {doc.author} {doc.subject} {doc.grade} {doc.section}".lower()
-            if subject or grade or section:
-                # if already filtered by structured fields, keyword check can be softer
-                if keyword not in haystack and len(filtered) == 0:
-                    pass
-            elif keyword not in haystack:
+            if keyword not in haystack:
                 continue
 
         filtered.append(doc)
 
     if not filtered:
-        filtered = docs[:5]
+        return None, []
 
     top = filtered[:5]
     lines = [
@@ -105,17 +111,32 @@ def chat(
     db: Annotated[Session, Depends(get_db)],
 ) -> ChatResponse:
     role_hint = f"[Vai trò người dùng: {current_user.role}; Khối: {current_user.grade}]"
+    search_intent = is_document_search_intent(payload.message)
     context, source_ids = build_document_context(db, payload.message)
 
-    response = chat_with_nvidia(
-        user_message=(
-            f"{role_hint}\n"
-            "Hãy trả lời dựa trên dữ liệu tài liệu được cung cấp. "
-            "Nếu người dùng hỏi tìm tài liệu, hãy gợi ý tối đa 3 tài liệu phù hợp nhất. "
-            "Nếu không có tài liệu phù hợp, nói rõ chưa tìm thấy và gợi ý đổi từ khóa/môn/khối.\n\n"
-            f"Câu hỏi: {payload.message}"
-        ),
-        context=context,
-    )
+    if search_intent and not context:
+        response = (
+            'Mình chưa tìm thấy tài liệu phù hợp trong thư viện hiện tại. '
+            'Bạn thử nói rõ hơn môn học, khối lớp hoặc loại tài liệu nhé. Ví dụ: "tài liệu Toán lớp 9" hoặc "slide Tiếng Anh lớp 7".'
+        )
+        return ChatResponse(reply=response, sources=[])
+
+    try:
+        response = chat_with_nvidia(
+            user_message=(
+                f"{role_hint}\n"
+                "Nếu đây là câu hỏi chào hỏi hoặc trò chuyện thông thường, hãy trả lời tự nhiên, ngắn gọn, không bịa tài liệu. "
+                "Chỉ khi có dữ liệu tài liệu đi kèm thì mới gợi ý tài liệu. Nếu là câu hỏi tìm tài liệu mà không có dữ liệu phù hợp, hãy nói chưa tìm thấy.\n\n"
+                f"Câu hỏi: {payload.message}"
+            ),
+            context=context,
+        )
+    except HTTPException as exc:
+        if exc.status_code >= 500:
+            return ChatResponse(
+                reply='Chatbot đang bận hoặc model trả lời chậm. Bạn thử hỏi lại sau 1 phút hoặc rút gọn câu hỏi giúp mình nhé.',
+                sources=[],
+            )
+        raise
 
     return ChatResponse(reply=response, sources=source_ids)
