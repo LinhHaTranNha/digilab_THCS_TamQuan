@@ -103,6 +103,15 @@ npm run build
 6. Donation form cong khai cho user da dang nhap
 7. Login, register, logout
 8. Quan tri noi dung
+9. Widget chatbot o goc duoi ben phai (sau khi dang nhap)
+
+## Chatbot UI
+
+- Component: `src/components/common/ChatWidget.jsx`
+- Goi API qua `sendChatMessage()` trong `src/services/apiService.js`
+- Tu dong scroll xuong cuoi sau moi message
+- Link trong tra loi co the click truc tiep
+- Neu chua dang nhap, widget se yeu cau dang nhap truoc khi su dung
 
 ## Quy tac quyen o frontend
 

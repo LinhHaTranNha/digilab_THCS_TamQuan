@@ -94,6 +94,39 @@ Khi chay tren Render, cung script nay se tu dong bind `0.0.0.0:$PORT` va khong b
 - `GET /api/donations`
 - `POST /api/donations`
 
+### Chatbot (NVIDIA + tìm tài liệu DB)
+
+- `POST /api/chat`
+- Yêu cầu phải **đăng nhập** (dùng token hiện tại)
+- Lấy bối cảnh tài liệu từ DB (search theo môn/khối/section/keyword) → nếu không có kết quả thì trả thông báo “chưa tìm thấy, đổi từ khóa” (không gọi AI)
+- Nếu có kết quả: đính kèm tối đa 5 tài liệu vào context, gọi model NVIDIA để diễn giải
+
+**Env cần thiết** (trong `backend/.env`):
+```
+DATABASE_URL=postgresql://user:password@127.0.0.1:5432/digilab
+SECRET_KEY=change-me
+NVIDIA_API_KEY=<key của bạn>
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_MODEL=meta/llama-3.1-8b-instruct
+```
+
+**Model mặc định:** `meta/llama-3.1-8b-instruct` (đã giảm max_tokens 300 cho nhanh)
+- Nếu muốn đổi model, sửa `NVIDIA_MODEL` trong `.env`
+- Timeout gọi API: 60s, nếu lỗi/timeout → backend trả fallback “Chatbot đang bận…”
+- Fallback frontend: nếu backend trả lỗi/timeout sẽ hiện “Hiện chatbot đang bận. Bạn thử lại sau nhé.”
+
+**Luồng xử lý `/api/chat`:**
+1) Kiểm tra intent tìm tài liệu (keyword môn/khối/tài liệu/de thi/slide/...)
+2) Query DB `documents` → lấy tối đa 5 kết quả phù hợp
+3) Nếu không có kết quả và intent tìm tài liệu → trả thông báo “chưa tìm thấy, gợi ý đổi từ khóa” (không gọi AI)
+4) Nếu có kết quả → gửi context tài liệu + câu hỏi sang NVIDIA → trả lời
+
+**Frontend widget:**
+- Nút “💬 Chatbot” góc dưới phải (sau khi login)
+- Auto scroll về cuối sau mỗi tin nhắn
+- Link PDF được linkify, xuống dòng đầy đủ
+- Nếu backend fallback (model lỗi/chậm) sẽ hiển thị thông báo rõ ràng
+
 ## Nghiep vu chinh
 
 - `school`: quan ly tat ca tai lieu
