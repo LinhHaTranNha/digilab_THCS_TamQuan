@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
 import { getApiErrorMessage, sendChatMessage } from '../../services/apiService';
 
@@ -43,6 +43,13 @@ function ChatWidget() {
       text: 'Xin chào 👋 Mình là trợ lý thư viện số. Bạn cần tìm tài liệu môn nào?',
     },
   ]);
+  const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, sending, isOpen]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -95,7 +102,10 @@ function ChatWidget() {
             </button>
           </div>
 
-          <div className="h-80 overflow-y-auto p-3 space-y-2 bg-slate-50">
+          <div
+            ref={messagesContainerRef}
+            className="h-80 overflow-y-auto p-3 space-y-2 bg-slate-50"
+          >
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
@@ -113,6 +123,7 @@ function ChatWidget() {
                 Đang trả lời...
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
           <div className="p-3 border-t border-slate-200 bg-white flex gap-2">
