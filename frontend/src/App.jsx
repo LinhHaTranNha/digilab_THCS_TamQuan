@@ -11,6 +11,7 @@ import ScrollToTop from './components/ScrollToTop';
 import SlidePage from './pages/Slides/Index';
 import DocumentDetailPage from './pages/Documents/Detail';
 import ManagePage from './pages/Manage/Index';
+import AdvisorPage from './pages/Advisor/Index';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
 function App() {
@@ -28,6 +29,14 @@ function App() {
           <Route path="/exams" element={<ExamPage />} />
           <Route path="/slides" element={<SlidePage />} />
           <Route path="/documents/:documentId" element={<DocumentDetailPage />} />
+          <Route
+            path="/advisor"
+            element={(
+              <ProtectedRoute>
+                <AdvisorPage />
+              </ProtectedRoute>
+            )}
+          />
           <Route
             path="/manage"
             element={(

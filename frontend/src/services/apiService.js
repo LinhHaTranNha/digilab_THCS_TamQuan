@@ -138,6 +138,42 @@ export async function saveDonation(payload) {
   return data;
 }
 
+export async function askAiAdvisor(payload) {
+  const advisorPayload = {
+    question: payload.question,
+    grade: payload.grade,
+    subject: payload.subject,
+    section: payload.section,
+    resourceType: payload.resourceType,
+  };
+
+  try {
+    const { data } = await apiClient.post('/ai/advisor', advisorPayload);
+    return data;
+  } catch (error) {
+    // Backward compatibility for deployed backend versions that still expose /chat.
+    if (error?.response?.status !== 404) {
+      throw error;
+    }
+
+    const { data } = await apiClient.post('/chat', {
+      message: payload.question,
+    });
+
+    return {
+      answer: data.reply,
+      recommendedDocuments: [],
+      planBySubject: [],
+      appliedGrade: payload.grade || null,
+      appliedSubject: payload.subject || null,
+      appliedSubjects: payload.subject ? [payload.subject] : null,
+      appliedSection: payload.section || null,
+      appliedResourceType: payload.resourceType || null,
+      appliedExamGoal: null,
+    };
+  }
+}
+
 export function getSectionLabel(section) {
   const labels = {
     library: 'Thư viện',

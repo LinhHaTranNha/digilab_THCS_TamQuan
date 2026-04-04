@@ -1,321 +1,181 @@
-# Digital Library
+# Digital Library - Thu vien so THCS Tam Quan
 
-Digital Library la mot MVP thu vien so cho truong hoc, duoc xay dung voi frontend React/Vite/Tailwind va backend FastAPI/PostgreSQL.
+Du an nay la mot MVP thu vien so cho truong THCS, gom 3 nhom nguoi dung: nha truong, giao vien, hoc sinh. He thong gom backend FastAPI + PostgreSQL, frontend React, va tro ly AI tu van tai lieu hoc tap dua tren metadata trong CSDL.
 
-## Kien truc hien tai
+README nay duoc tong hop sau khi da doc toan bo code hien co trong du an (backend + frontend + migration + seed data).
 
-- Frontend: React 18, Vite, React Router, Tailwind CSS
-- Backend: FastAPI, SQLAlchemy 2, Alembic
-- Database: PostgreSQL
-- Auth: token don gian duoc cap boi backend va luu o `sessionStorage`
+## 1) Du an dang lam nhung viec gi?
 
-## Cau truc thu muc
+### 1.1 Bai toan nghiep vu
+
+- Tap trung hoa tai lieu hoc tap vao mot he thong duy nhat.
+- Cho phep tim kiem va loc tai lieu theo khoi, mon, loai, tu khoa.
+- Quan tri noi dung theo phan quyen vai tro trong truong hoc.
+- Ho tro quy trinh quyen gop sach/tai lieu.
+- Tich hop tro ly AI de goi y tai lieu hoc tap phu hop.
+
+### 1.2 Cac module dang hoat dong
+
+- Auth module
+- Documents module
+- Donations module
+- AI Advisor module
+
+## 2) Kien truc he thong
+
+```text
+Frontend (React + Vite + Tailwind)
+    -> HTTP JSON + Bearer token
+Backend (FastAPI + SQLAlchemy)
+    -> PostgreSQL
+    -> NVIDIA Chat Completions API
+```
+
+## 3) Cong nghe su dung
+
+### Frontend
+
+- React 18
+- React Router DOM
+- Axios
+- TailwindCSS + PostCSS + Autoprefixer
+- Vite 5
+
+### Backend
+
+- FastAPI
+- Uvicorn
+- SQLAlchemy 2
+- Alembic
+- psycopg (PostgreSQL)
+- email-validator
+
+## 4) Cau truc thu muc
 
 ```text
 digital library/
 ├── backend/
-│   ├── alembic/
 │   ├── app/
-│   │   ├── api/
-│   │   ├── config.py
-│   │   ├── db.py
-│   │   ├── dependencies.py
-│   │   ├── main.py
-│   │   ├── models.py
-│   │   ├── schemas.py
-│   │   └── security.py
-│   ├── .env.example
-│   ├── alembic.ini
-│   └── requirements.txt
+│   │   ├── main.py                # FastAPI app, CORS, mount routers
+│   │   ├── config.py              # Load env + settings
+│   │   ├── db.py                  # SQLAlchemy engine/session
+│   │   ├── models.py              # User, Document, Donation
+│   │   ├── schemas.py             # Request/response schemas (camelCase)
+│   │   ├── security.py            # Password hash + token HMAC
+│   │   ├── dependencies.py        # Auth dependencies + role check
+│   │   ├── ai_service.py          # Infer/filter/rank/call AI
+│   │   └── api/
+│   │       ├── auth.py
+│   │       ├── documents.py
+│   │       ├── donations.py
+│   │       └── ai.py
+│   ├── alembic/
+│   │   └── versions/
+│   │       └── 20260314_0001_initial_schema.py
+│   ├── run_backend.py
+│   ├── requirements.txt
+│   └── .env.example
 ├── frontend/
 │   ├── src/
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   ├── config/api.js
+│   │   ├── services/apiService.js
+│   │   ├── store/AuthContext.jsx
 │   │   ├── components/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   └── store/
-│   └── package.json
+│   │   └── pages/
+│   ├── package.json
+│   └── .env.example
+├── run.md
 └── README.md
 ```
 
-## Chuc nang MVP da co
-
-- Dang nhap va dang ky tai khoan hoc sinh
-- 3 vai tro: `school`, `teacher`, `student`
-- Danh sach tai lieu cho thu vien, de thi va slide
-- Loc theo khoi, mon hoc, loai tai lieu va tu khoa
-- Trang chi tiet tai lieu, mo PDF va tai xuong
-- Form quyên gop cong khai cho tat ca tai khoan da dang nhap
-- Khu quan tri cho `school` va `teacher`
-- Tao, sua, xoa tai lieu thong qua API va PostgreSQL
-- Migration va seed du lieu mau bang Alembic
-
-## Quy tac quyen hien tai
-
-- `school`
-  Co the quan ly tat ca tai lieu.
-  Co the dang ebook, tai lieu, de thi, de cuong, slide.
-  Co the gui donation qua form cong khai.
-
-- `teacher`
-  Co the dang tai tai lieu cua minh trong thu vien, slide, de thi va de cuong.
-  Co the dang ebook trong thu vien.
-  Co the gui donation qua form cong khai.
-
-- `student`
-  Co the xem tai lieu, mo PDF, tai xuong PDF.
-  Co the dang ky tai khoan.
-  Co the gui donation qua form cong khai.
-  Khong co quyen vao khu quan tri va khong duoc dang tai tai lieu.
-
-## Du lieu seed mac dinh
-
-Sau khi migrate, he thong co san 3 tai khoan demo:
-
-- `school@tamquan.edu.vn / 123456`
-- `teacher@tamquan.edu.vn / 123456`
-- `student@tamquan.edu.vn / 123456`
-
-Migration seed nam o `backend/alembic/versions/20260314_0001_initial_schema.py`.
-
-## Bien moi truong
-
-### Backend
-
-Tao file `backend/.env` tu mau `backend/.env.example`:
-
-```env
-DATABASE_URL=postgresql://username:password@host/database
-SECRET_KEY=change-me
-```
-
-Luu y:
-
-- `config.py` tu dong chuyen `postgresql://` sang `postgresql+psycopg://`
-- Neu host la Render Postgres, he thong tu them `sslmode=require`
-
-### Frontend
-
-Frontend da goi backend that qua `frontend/src/services/apiService.js`.
-
-Noi cau hinh URL mac dinh cua backend la `frontend/src/config/api.js`.
-
-Co the tao file `frontend/.env` neu muon doi API URL:
-
-```env
-VITE_API_BASE_URL=https://digilab-thcs-tamquan.onrender.com/api
-```
-
-Neu khong khai bao, frontend mac dinh goi `https://digilab-thcs-tamquan.onrender.com/api`.
-
-## Cai dat va chay du an
-
-### 1. Cai dat backend
-
-Tu thu muc `backend`:
-
-```powershell
-& "C:/Users/NHA LINH/AppData/Local/Programs/Python/Python312/python.exe" -m pip install -r requirements.txt
-```
-
-Neu ban dung Python khac, thay duong dan tren bang interpreter phu hop.
-
-### 2. Chay migration
-
-Tu thu muc `backend`:
-
-```powershell
-& "C:/Users/NHA LINH/AppData/Local/Programs/Python/Python312/python.exe" -m alembic upgrade head
-```
-
-Lenh nay se:
-
-- Tao bang `users`, `documents`, `donations`
-- Tao index can thiet
-- Seed du lieu demo ban dau
-
-### 3. Chay backend
-
-Tu thu muc `backend`:
-
-```powershell
-& "C:/Users/NHA LINH/AppData/Local/Programs/Python/Python312/python.exe" run_backend.py
-```
-
-Lenh tren la cach ngan gon de chay backend local tren port `8001`.
-
-Khi deploy len Render, `run_backend.py` tu dong:
-
-- bind ra `0.0.0.0`
-- doc port tu bien moi truong `PORT`
-- tat `reload`
-
-API health check:
-
-```text
-GET http://127.0.0.1:8001/health
-```
-
-### 4. Cai dat frontend
-
-Tu thu muc `frontend`:
-
-```powershell
-npm install
-```
-
-### 5. Chay frontend
-
-Tu thu muc `frontend`:
-
-```powershell
-npm run dev
-```
-
-Frontend mac dinh chay o:
-
-```text
-http://127.0.0.1:5173
-```
-
-### 6. Build frontend
-
-```powershell
-npm run build
-```
-
-## Quy trinh phat trien
-
-Muc nay dung de ban giao cho nguoi tiep theo hoac de giu quy trinh lam viec on dinh khi mo rong du an.
-
-### Quy trinh tao tinh nang moi
-
-1. Keo ma moi nhat ve may va chuyen vao root du an.
-2. Kiem tra `backend/.env` va `frontend/.env` da dung chua.
-3. Khoi dong backend truoc, sau do khoi dong frontend.
-4. Xac nhan `GET http://127.0.0.1:8001/health` tra ve `ok`.
-5. Neu tinh nang lien quan database, cap nhat model trong `backend/app/models.py`.
-6. Neu co thay doi contract API, cap nhat schema trong `backend/app/schemas.py` va route trong `backend/app/api/`.
-7. Neu can doi URL backend, sua `frontend/src/config/api.js` hoac `frontend/.env` truoc.
-8. Neu frontend can du lieu moi, cap nhat `frontend/src/services/apiService.js`.
-9. Sau do moi cap nhat page, component hoac auth context ben frontend.
-10. Chay build frontend va test API co ban truoc khi ban giao.
-
-### Quy trinh deploy len Render
-
-1. Dat start command la `python run_backend.py` trong service backend.
-2. Khong hard-code port trong Render, vi script se tu doc `PORT`.
-3. Dam bao Render service root dang tro vao thu muc `backend` hoac start command chay tu thu muc nay.
-4. Sau khi deploy, kiem tra `GET /health` truoc khi test cac API con lai.
-
-### Quy trinh sua frontend
-
-1. Chinh sua UI trong `frontend/src/pages`, `frontend/src/components`.
-2. Neu can goi API moi, them ham trong `frontend/src/services/apiService.js`.
-3. Neu can state dang nhap, sua `frontend/src/store/AuthContext.jsx`.
-4. Chay:
-
-```powershell
-Set-Location frontend
-npm run build
-```
-
-5. Neu can test local, chay them:
-
-```powershell
-Set-Location frontend
-npm run dev
-```
-
-### Quy trinh sua backend
-
-1. Chinh model trong `backend/app/models.py` neu thay doi cau truc du lieu.
-2. Chinh schema trong `backend/app/schemas.py` neu thay doi request/response.
-3. Chinh route trong `backend/app/api/` neu thay doi nghiep vu.
-4. Neu lien quan auth/token, sua `backend/app/security.py` va `backend/app/dependencies.py`.
-5. Neu them bien moi truong, cap nhat `backend/.env.example`.
-6. Khoi dong lai backend va test endpoint bang `Invoke-RestMethod` hoac Postman.
-
-### Quy trinh test co ban truoc khi ban giao
-
-1. Chay migration moi nhat.
-2. Chay backend local.
-3. Test `GET /health`.
-4. Test `POST /api/auth/login` voi tai khoan seed.
-5. Test `GET /api/documents?section=library`.
-6. Neu co thay doi donation, test `POST /api/donations`.
-7. Neu co thay doi quan tri, test `POST/PUT/DELETE /api/documents` voi tai khoan `school` hoac `teacher`.
-8. Build frontend thanh cong truoc khi ket thuc.
-
-## Quy trinh migrate database
-
-Muc nay mo ta chi tiet cach cap nhat schema database khi du an thay doi.
-
-### Truong hop 1: Chi can ap dung migration da co
-
-Dung khi du an da co san migration file, va ban chi muon dong bo schema len database.
-
-1. Tao hoac kiem tra file `backend/.env`.
-2. Chuyen vao thu muc `backend`.
-3. Chay:
-
-```powershell
-& "C:/Users/NHA LINH/AppData/Local/Programs/Python/Python312/python.exe" -m alembic upgrade head
-```
-
-4. Kiem tra log Alembic co thong bao `Running upgrade`.
-5. Test lai API de dam bao schema moi hoat dong.
-
-### Truong hop 2: Thay doi model va can tao migration moi
-
-Dung khi ban da sua `backend/app/models.py` va can tao migration moi.
-
-1. Sua model SQLAlchemy trong `backend/app/models.py`.
-2. Neu can, sua schema Pydantic trong `backend/app/schemas.py`.
-3. Chuyen vao thu muc `backend`.
-4. Tao migration moi:
-
-```powershell
-& "C:/Users/NHA LINH/AppData/Local/Programs/Python/Python312/python.exe" -m alembic revision --autogenerate -m "ten migration"
-```
-
-5. Mo file migration trong `backend/alembic/versions/` de review lai SQL sinh ra.
-6. Neu can seed du lieu, viet them `op.bulk_insert(...)` trong file migration.
-7. Chay migration:
-
-```powershell
-& "C:/Users/NHA LINH/AppData/Local/Programs/Python/Python312/python.exe" -m alembic upgrade head
-```
-
-8. Test lai endpoint lien quan.
-
-### Truong hop 3: Rollback migration
-
-Dung khi migration moi gay loi va ban can quay ve schema truoc do.
-
-1. Chuyen vao thu muc `backend`.
-2. Chay rollback 1 buoc:
-
-```powershell
-& "C:/Users/NHA LINH/AppData/Local/Programs/Python/Python312/python.exe" -m alembic downgrade -1
-```
-
-3. Neu can quay ve revision cu the:
-
-```powershell
-& "C:/Users/NHA LINH/AppData/Local/Programs/Python/Python312/python.exe" -m alembic downgrade <revision_id>
-```
-
-4. Sau rollback, khoi dong lai backend va test lai API.
-
-### Checklist khi migrate tren database that
-
-1. Backup database neu du an dang co du lieu quan trong.
-2. Chac chan `DATABASE_URL` dang tro dung DB dich.
-3. Review migration truoc khi chay len production.
-4. Chay migrate trong thoi diem it nguoi dung neu co doi schema lon.
-5. Test ngay sau migration: auth, documents, donations.
-
-## API hien co
+## 5) Chi tiet tung chuc nang
+
+### 5.1 Auth va phan quyen
+
+- Dang nhap: `POST /api/auth/login`
+  - Cho dang nhap bang email hoac student_id.
+  - Verify password bang PBKDF2-HMAC-SHA256.
+- Dang ky: `POST /api/auth/register`
+  - Tao user moi role mac dinh `student`.
+  - Kiem tra trung email/student_id.
+- Lay user hien tai: `GET /api/auth/me`.
+- Token:
+  - Token custom HMAC (khong phai JWT).
+  - Frontend luu trong `sessionStorage`.
+
+Phan quyen:
+
+- `school`: quan ly tat ca tai lieu.
+- `teacher`: quan ly tai lieu do minh tao.
+- `student`: khong duoc tao/sua/xoa tai lieu.
+
+### 5.2 Documents
+
+- Section:
+  - `library`: Ebook, Tai lieu.
+  - `exams`: De thi, De cuong.
+  - `slides`: Slide.
+- API co ho tro loc theo `section`, `grade`, `subject`, `resourceType`, `q`.
+- Co trang chi tiet tai lieu (`/documents/:documentId`) de xem metadata, mo PDF, tai xuong.
+
+### 5.3 Donations
+
+- Trang `/donation` cho phep gui quyen gop.
+- Phai dang nhap moi submit duoc.
+- Luu thong tin: fullName, bookName, grade, condition, message.
+- Danh sach donations chi school/teacher moi xem duoc trong API quan tri.
+
+### 5.4 Manage (quan tri)
+
+- Route: `/manage`.
+- Duoc bao ve boi `ProtectedRoute` va chi role `school`/`teacher` duoc vao.
+- Chuc nang:
+  - Tao tai lieu moi.
+  - Sua tai lieu.
+  - Xoa tai lieu.
+  - Xem danh sach tai lieu trong pham vi duoc quan ly.
+  - Xem danh sach donation da gui.
+
+### 5.5 AI Advisor
+
+- Route: `/advisor` (yeu cau dang nhap).
+- Nhan input: `question` + bo loc tuy chon (`grade`, `subject`, `section`, `resourceType`).
+- Xu ly backend:
+  - Infer thong tin tu cau hoi bang regex tieng Viet.
+  - Ket hop voi bo loc tu payload va fallback grade cua student.
+  - Lay candidate documents tu CSDL.
+  - Cham diem va xep hang tai lieu.
+  - Goi NVIDIA model de tao cau tra loi.
+- Output:
+  - `answer`
+  - `recommendedDocuments`
+  - `planBySubject`
+  - Cac `applied*` filter de frontend hien thi ngu canh.
+
+## 6) CSDL va du lieu demo
+
+Migration dau tien (`20260314_0001_initial_schema.py`) tao 3 bang:
+
+- `users`
+- `documents`
+- `donations`
+
+Seed data demo co san:
+
+- 3 tai khoan demo:
+  - school@tamquan.edu.vn / 123456
+  - teacher@tamquan.edu.vn / 123456
+  - student@tamquan.edu.vn / 123456
+- 6 tai lieu mau (library/exams/slides)
+- 1 donation mau
+
+## 7) API hien co
+
+### Health
+
+- `GET /health`
 
 ### Auth
 
@@ -337,77 +197,112 @@ Dung khi migration moi gay loi va ban can quay ve schema truoc do.
 - `GET /api/donations`
 - `POST /api/donations`
 
-## Mo ta bang du lieu
+### AI
 
-### users
+- `POST /api/ai/advisor`
 
-- `id`
-- `full_name`
-- `email`
-- `student_id`
-- `password_hash`
-- `role`
-- `grade`
-- `created_at`
+## 8) Huong dan cai dat va chay (HDSD)
 
-### documents
+### 8.1 Yeu cau moi truong
 
-- `id`
-- `title`
-- `description`
-- `author`
-- `subject`
-- `grade`
-- `section`
-- `resource_type`
-- `image`
-- `pdf_url`
-- `owner_role`
-- `created_by_id`
-- `created_by_name`
-- `created_at`
-- `updated_at`
+- Python 3.11+ (khuyen nghi 3.12)
+- Node.js 18+
+- PostgreSQL
 
-### donations
+### 8.2 Chay backend
 
-- `id`
-- `full_name`
-- `book_name`
-- `grade`
-- `condition`
-- `message`
-- `submitted_by_id`
-- `submitted_by_role`
-- `created_at`
+```powershell
+cd "c:\Users\NHA LINH\Documents\MY WORKSPACE\digital library\backend"
+```
 
-## Tinh trang hien tai
+Tao file `.env` (copy tu `.env.example`):
 
-Da hoan thanh:
+```env
+DATABASE_URL=postgresql://<user>:<password>@<host>/<database>
+SECRET_KEY=<your-secret>
+NVIDIA_API_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_API_KEY=<your-nvidia-api-key>
+NVIDIA_MODEL=meta/llama-3.1-70b-instruct
+AI_REQUEST_TIMEOUT_SECONDS=30
+AI_MAX_RESPONSE_TOKENS=700
+AI_CANDIDATE_LIMIT=10
+AI_MAX_QUESTION_LENGTH=500
+CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+CORS_ORIGIN_REGEX=^https?://(localhost|127\.0\.0\.1)(:\d+)?$
+```
 
-- FastAPI backend
-- PostgreSQL ket noi that
-- Alembic migration va seed
-- Frontend noi API that
-- Build frontend thanh cong
-- Test API co ban thanh cong
+Cai dependency va chay migration:
 
-Chua hoan thanh:
+```powershell
+pip install -r requirements.txt
+alembic upgrade head
+```
 
-- Upload file PDF/anh that
-- JWT chuan va token expiry
-- Test tu dong
-- README deploy production
-- Logging va monitoring
+Khoi dong backend:
 
-## Huong phat trien tiep theo
+```powershell
+python run_backend.py
+```
 
-1. Them upload file len storage that thay cho link PDF/anh thu cong.
-2. Nang cap auth sang JWT co expiry va refresh token.
-3. Them README deployment cho Render hoac VPS.
-4. Viet test cho auth, documents va donations.
-5. Them trang lam bai thi truc tiep neu can exam engine.
+Truy cap:
 
-## Tai lieu bo sung
+- API: `http://127.0.0.1:8001`
+- Swagger: `http://127.0.0.1:8001/docs`
 
-- Xem [backend/README.md](backend/README.md) de van hanh va ban giao rieng cho backend.
-- Xem [frontend/README.md](frontend/README.md) de van hanh va ban giao rieng cho frontend.
+### 8.3 Chay frontend
+
+```powershell
+cd "c:\Users\NHA LINH\Documents\MY WORKSPACE\digital library\frontend"
+```
+
+Tao file `.env` (neu can):
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8001/api
+```
+
+Cai dependency va chay:
+
+```powershell
+npm install
+npm run dev
+```
+
+Frontend mac dinh:
+
+- `http://127.0.0.1:5173`
+
+### 8.4 Trinh tu chay nhanh
+
+1. Chay PostgreSQL.
+2. Chay backend (`alembic upgrade head` -> `python run_backend.py`).
+3. Chay frontend (`npm run dev`).
+4. Mo trinh duyet vao frontend.
+5. Dang nhap bang tai khoan demo de thu full flow.
+
+## 9) Huong dan su dung nhanh
+
+1. Vao trang chu de tim nhanh bang tu khoa.
+2. Vao Library/Exams/Slides de loc tai lieu.
+3. Mo trang chi tiet de xem va tai PDF.
+4. Dang nhap bang role phu hop:
+   - student: hoc tap + donation + advisor.
+   - teacher/school: them route quan tri `/manage`.
+5. Thu gui donation tai `/donation`.
+6. Thu AI advisor tai `/advisor`.
+
+## 10) Trang thai hien tai va gioi han
+
+- Auth token hien la token custom HMAC, chua co expiry ro rang nhu JWT.
+- AI Advisor phu thuoc vao `NVIDIA_API_KEY`; thieu key se loi 503.
+- Tai lieu dang dung URL PDF/image ngoai, chua co upload file noi bo.
+- Chua thay bo test tu dong duoc commit trong repo.
+- Thu muc `docs/` dang trong.
+
+## 11) De xuat buoc tiep theo
+
+- Chuyen auth sang JWT + refresh token.
+- Them upload file + luu file tren cloud storage.
+- Them test cho cac endpoint chinh (`auth`, `documents`, `ai`).
+- Them logging/monitoring/rate-limit cho AI Advisor.
+- Bo sung tai lieu ky thuat chi tiet trong `docs/`.

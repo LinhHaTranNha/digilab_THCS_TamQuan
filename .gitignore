@@ -12,6 +12,14 @@ venv/
 ENV/
 .env
 .env.*
+!.env.example
+!.env.*.example
+config.ini
+*.db
+*.sqlite3
+*.sqlite
+.python-version
+.envrc
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -26,6 +34,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+*.pid
 
 # Hệ điều hành (File rác của Windows/Mac)
 .DS_Store

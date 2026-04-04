@@ -12,6 +12,7 @@ const HomePage = () => {
     { n: 'Đề thi & Đề cương', i: '📝', c: 'bg-green-50', path: '/exams' },
     { n: 'Slide Bài giảng', i: '💻', c: 'bg-yellow-50', path: '/slides' },
     { n: 'Góc Tặng sách', i: '🎁', c: 'bg-pink-50', path: '/donation' },
+    { n: 'Trợ lý AI', i: '🤖', c: 'bg-violet-50', path: '/advisor' },
   ];
 
   const [query, setQuery] = useState('');
@@ -96,7 +97,7 @@ const HomePage = () => {
 
       {/* Categories */}
       <section className="max-w-7xl mx-auto py-16 px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-8">
           {categories.map((item, idx) => (
             <Link 
               key={idx} 

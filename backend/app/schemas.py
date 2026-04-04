@@ -110,3 +110,44 @@ class DonationResponse(ApiSchema):
     submitted_by_id: str
     submitted_by_role: str
     created_at: datetime
+
+
+class AiAdvisorRequest(ApiSchema):
+    question: str = Field(min_length=3, max_length=500)
+    grade: str | None = None
+    subject: str | None = None
+    subjects: list[str] | None = None
+    section: str | None = None
+    resource_type: str | None = None
+    exam_goal: str | None = None
+
+
+class AiAdvisorDocument(ApiSchema):
+    id: str
+    title: str
+    description: str
+    subject: str
+    grade: str
+    section: str
+    resource_type: str
+    author: str
+    pdf_url: str
+
+
+class AiAdvisorSubjectPlan(ApiSchema):
+    subject: str
+    priority: int
+    recommendation: str
+    documents: list[AiAdvisorDocument]
+
+
+class AiAdvisorResponse(ApiSchema):
+    answer: str
+    recommended_documents: list[AiAdvisorDocument]
+    applied_grade: str | None = None
+    applied_subject: str | None = None
+    applied_subjects: list[str] | None = None
+    applied_section: str | None = None
+    applied_resource_type: str | None = None
+    applied_exam_goal: str | None = None
+    plan_by_subject: list[AiAdvisorSubjectPlan] = Field(default_factory=list)

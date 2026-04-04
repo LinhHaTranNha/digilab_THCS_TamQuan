@@ -66,6 +66,13 @@ class Settings:
     api_prefix: str = '/api'
     secret_key: str = 'digital-library-secret-key'
     database_url: str = ''
+    nvidia_api_base_url: str = 'https://integrate.api.nvidia.com/v1'
+    nvidia_api_key: str = ''
+    nvidia_model: str = 'meta/llama-3.1-70b-instruct'
+    ai_request_timeout_seconds: int = 45
+    ai_max_response_tokens: int = 1024
+    ai_candidate_limit: int = 15
+    ai_max_question_length: int = 500
     cors_origin_regex: str = r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$'
     cors_origins: list[str] = field(default_factory=lambda: [
         'http://localhost:5173',
@@ -92,6 +99,13 @@ def get_settings() -> Settings:
         api_prefix=os.getenv('API_PREFIX') or env_values.get('API_PREFIX', '/api'),
         secret_key=os.getenv('SECRET_KEY') or env_values.get('SECRET_KEY', 'digital-library-secret-key'),
         database_url=database_url,
+        nvidia_api_base_url=os.getenv('NVIDIA_API_BASE_URL') or env_values.get('NVIDIA_API_BASE_URL', 'https://integrate.api.nvidia.com/v1'),
+        nvidia_api_key=os.getenv('NVIDIA_API_KEY') or env_values.get('NVIDIA_API_KEY', ''),
+        nvidia_model=os.getenv('NVIDIA_MODEL') or env_values.get('NVIDIA_MODEL', 'meta/llama-3.1-70b-instruct'),
+        ai_request_timeout_seconds=int(os.getenv('AI_REQUEST_TIMEOUT_SECONDS') or env_values.get('AI_REQUEST_TIMEOUT_SECONDS', '30')),
+        ai_max_response_tokens=int(os.getenv('AI_MAX_RESPONSE_TOKENS') or env_values.get('AI_MAX_RESPONSE_TOKENS', '700')),
+        ai_candidate_limit=int(os.getenv('AI_CANDIDATE_LIMIT') or env_values.get('AI_CANDIDATE_LIMIT', '10')),
+        ai_max_question_length=int(os.getenv('AI_MAX_QUESTION_LENGTH') or env_values.get('AI_MAX_QUESTION_LENGTH', '500')),
         cors_origin_regex=os.getenv('CORS_ORIGIN_REGEX') or env_values.get('CORS_ORIGIN_REGEX', r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$'),
         cors_origins=parse_cors_origins(os.getenv('CORS_ORIGINS') or env_values.get('CORS_ORIGINS')),
     )

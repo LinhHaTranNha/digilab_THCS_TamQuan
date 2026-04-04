@@ -22,6 +22,7 @@ const Header = () => {
             <Link to="/exams" className="text-gray-700 hover:text-blue-600 font-medium">Đề thi & Đề cương</Link>
             <Link to="/slides" className="text-gray-700 hover:text-blue-600 font-medium">Slides</Link>
             <Link to="/donation" className="text-gray-700 hover:text-blue-600 font-medium">Quyên góp</Link>
+            <Link to="/advisor" className="text-gray-700 hover:text-blue-600 font-medium">Trợ lý AI</Link>
             {currentUser && currentUser.role !== 'student' ? (
               <Link to="/manage" className="text-gray-700 hover:text-blue-600 font-medium">Quản trị</Link>
             ) : null}
