@@ -1,13 +1,13 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.dependencies import get_current_user
 from app.models import Document, User
-from app.schemas import DocumentCreateRequest, DocumentResponse, DocumentUpdateRequest, model_validate_compat
+from app.schemas import DocumentCreateRequest, DocumentResponse, DocumentsListResponse, DocumentUpdateRequest, model_validate_compat
 
 
 router = APIRouter(prefix='/documents', tags=['documents'])
@@ -24,7 +24,7 @@ def validate_document_permission(user: User, payload: DocumentCreateRequest | Do
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Học sinh không có quyền đăng tải tài liệu.')
 
 
-@router.get('', response_model=list[DocumentResponse])
+@router.get('', response_model=DocumentsListResponse)
 def list_documents(
     db: Annotated[Session, Depends(get_db)],
     section: str | None = Query(default=None),
@@ -32,34 +32,70 @@ def list_documents(
     subject: str | None = Query(default=None),
     resource_type: str | None = Query(default=None, alias='resourceType'),
     q: str | None = Query(default=None),
-) -> list[DocumentResponse]:
-    documents = db.scalars(select(Document).order_by(Document.created_at.desc())).all()
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100, alias='pageSize'),
+    sort: str = Query(default='newest'),
+) -> DocumentsListResponse:
+    keyword = (q or '').strip()
 
-    filtered: list[Document] = []
-    keyword = (q or '').strip().lower()
-    for document in documents:
-        if section and document.section != section:
-            continue
-        if grade and grade != 'Tất cả' and document.grade != grade:
-            continue
-        if subject and subject != 'Tất cả' and document.subject != subject:
-            continue
-        if resource_type and resource_type != 'Tất cả' and document.resource_type != resource_type:
-            continue
-        if keyword:
-            haystack = f'{document.title} {document.description} {document.author} {document.subject}'.lower()
-            if keyword not in haystack:
-                continue
-        filtered.append(document)
+    sort_options = {
+        'newest': Document.created_at.desc(),
+        'title': Document.title.asc(),
+        'subject': Document.subject.asc(),
+    }
 
-    return [model_validate_compat(DocumentResponse, document) for document in filtered]
+    order_clause = sort_options.get(sort, sort_options['newest'])
+
+    query = select(Document)
+
+    if section and section != 'Tất cả':
+        query = query.where(Document.section == section)
+
+    if grade and grade != 'Tất cả':
+        query = query.where(Document.grade.in_([grade, 'Tất cả']))
+
+    if subject and subject != 'Tất cả':
+        query = query.where(Document.subject == subject)
+
+    if resource_type and resource_type != 'Tất cả':
+        query = query.where(Document.resource_type == resource_type)
+
+    if keyword:
+        lowered = f'%{keyword.lower()}%'
+        query = query.where(
+            or_(
+                Document.title.ilike(lowered),
+                Document.description.ilike(lowered),
+                Document.author.ilike(lowered),
+                Document.subject.ilike(lowered),
+            )
+        )
+
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    total_pages = max((total + page_size - 1) // page_size, 1)
+    current_page = min(page, total_pages)
+    offset = (current_page - 1) * page_size
+
+    documents = db.scalars(query.order_by(order_clause).offset(offset).limit(page_size)).all()
+
+    return DocumentsListResponse(
+        items=[model_validate_compat(DocumentResponse, document) for document in documents],
+        page=current_page,
+        page_size=page_size,
+        total=total,
+        total_pages=total_pages,
+    )
 
 
 @router.get('/subjects', response_model=list[str])
 def list_subjects(db: Annotated[Session, Depends(get_db)], section: str | None = Query(default=None)) -> list[str]:
-    documents = db.scalars(select(Document)).all()
-    values = sorted({document.subject for document in documents if section is None or document.section == section})
-    return values
+    query = select(Document.subject).where(Document.subject.is_not(None), Document.subject != '')
+
+    if section and section != 'Tất cả':
+        query = query.where(Document.section == section)
+
+    rows = db.execute(query.distinct().order_by(Document.subject.asc())).all()
+    return [row.subject.strip() for row in rows]
 
 
 @router.get('/{document_id}', response_model=DocumentResponse)

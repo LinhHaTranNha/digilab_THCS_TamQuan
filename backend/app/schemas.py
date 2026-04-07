@@ -76,6 +76,14 @@ class DocumentResponse(ApiSchema):
     updated_at: datetime
 
 
+class DocumentsListResponse(ApiSchema):
+    items: list[DocumentResponse]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+
+
 class DocumentCreateRequest(ApiSchema):
     title: str
     description: str

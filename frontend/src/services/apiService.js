@@ -79,6 +79,17 @@ export function logoutUser() {
 
 export async function getDocuments(params = {}) {
   const { data } = await apiClient.get('/documents', { params });
+
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      page: 1,
+      pageSize: data.length,
+      total: data.length,
+      totalPages: 1,
+    };
+  }
+
   return data;
 }
 
@@ -93,7 +104,12 @@ export async function getDocumentById(documentId) {
 
 export async function getUniqueSubjects(section) {
   const { data } = await apiClient.get('/documents/subjects', { params: { section } });
-  return data;
+
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return [...new Set(data.map((item) => (item || '').trim()).filter(Boolean))];
 }
 
 export async function saveDocument(payload) {
@@ -125,6 +141,16 @@ export async function deleteDocument(documentId) {
 export async function getDonations() {
   const { data } = await apiClient.get('/donations');
   return data;
+}
+
+export async function getSubjectStats(params = {}) {
+  const { data } = await apiClient.get('/stats/subjects', { params });
+  return data?.items || [];
+}
+
+export async function getAuthorStats(params = {}) {
+  const { data } = await apiClient.get('/stats/authors', { params });
+  return data?.items || [];
 }
 
 export async function saveDonation(payload) {
