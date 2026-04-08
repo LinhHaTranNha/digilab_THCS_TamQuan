@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import BookCard from '../../components/cards/BookCard';
-import { getDocumentsBySection, getUniqueSubjects } from '../../services/apiService';
+import { getApiErrorMessage, getDocumentsBySection, getUniqueSubjects } from '../../services/apiService';
 
 const PAGE_SIZE = 12;
 const LIBRARY_FILTERS_STORAGE_KEY = 'digital-library-filters-library';
 const LIBRARY_SAVE_PREF_KEY = 'digital-library-filters-library-enabled';
+const LIBRARY_RECENT_SEARCHES_KEY = 'digital-library-recent-searches-library';
+const LIBRARY_RECENT_SEARCHES_PREF_KEY = 'digital-library-recent-searches-library-enabled';
 
 const LibraryPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,19 +19,30 @@ const LibraryPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [keyword, setKeyword] = useState(searchParams.get('q') || '');
   const [debouncedKeyword, setDebouncedKeyword] = useState(searchParams.get('q') || '');
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem(LIBRARY_RECENT_SEARCHES_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [sortBy, setSortBy] = useState('newest');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [saveAsDefault, setSaveAsDefault] = useState(() => window.localStorage.getItem(LIBRARY_SAVE_PREF_KEY) !== '0');
+  const [saveRecentSearches, setSaveRecentSearches] = useState(() => window.localStorage.getItem(LIBRARY_RECENT_SEARCHES_PREF_KEY) !== '0');
   const [copyStatus, setCopyStatus] = useState('');
 
   useEffect(() => {
     const grade = searchParams.get('grade');
     const subject = searchParams.get('subject');
     const query = searchParams.get('q');
+    const sort = searchParams.get('sort');
     const pageParam = Number.parseInt(searchParams.get('page') || '1', 10);
 
-    if (!grade && !subject && !query && !searchParams.get('page') && saveAsDefault) {
+    if (!grade && !subject && !query && !sort && !searchParams.get('page') && saveAsDefault) {
       try {
         const savedRaw = window.localStorage.getItem(LIBRARY_FILTERS_STORAGE_KEY);
         if (savedRaw) {
@@ -37,6 +50,7 @@ const LibraryPage = () => {
           setSelectedGrade(saved.grade || 'Tất cả');
           setSelectedCategory(saved.subject || 'Tất cả');
           setKeyword(saved.keyword || '');
+          setDebouncedKeyword(saved.keyword || '');
           setSortBy(saved.sortBy || 'newest');
           setPage(1);
           return;
@@ -50,6 +64,7 @@ const LibraryPage = () => {
     setSelectedCategory(subject || 'Tất cả');
     setKeyword(query || '');
     setDebouncedKeyword(query || '');
+    setSortBy(sort || 'newest');
     setPage(Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam);
   }, [searchParamsKey, saveAsDefault]);
 
@@ -64,11 +79,20 @@ const LibraryPage = () => {
     };
 
     setLoading(true);
-    const { items, total: totalItems } = await getDocumentsBySection('library', payload);
-    setBooks(items || []);
-    setTotal(totalItems || 0);
-    setPage(nextPage);
-    setLoading(false);
+    setError('');
+
+    try {
+      const { items, total: totalItems } = await getDocumentsBySection('library', payload);
+      setBooks(items || []);
+      setTotal(totalItems || 0);
+      setPage(nextPage);
+    } catch (requestError) {
+      setBooks([]);
+      setTotal(0);
+      setError(getApiErrorMessage(requestError, 'Không thể tải danh sách tài liệu lúc này. Vui lòng thử lại sau.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateSearchParamsFromState = (pageValue = page) => {
@@ -102,16 +126,25 @@ const LibraryPage = () => {
     let mounted = true;
 
     const load = async () => {
-      const [docs, nextSubjects] = await Promise.all([
-        getDocumentsBySection('library', { page: 1, pageSize: PAGE_SIZE }),
-        getUniqueSubjects('library'),
-      ]);
+      try {
+        setError('');
+        const [docs, nextSubjects] = await Promise.all([
+          getDocumentsBySection('library', { page: 1, pageSize: PAGE_SIZE }),
+          getUniqueSubjects('library'),
+        ]);
 
-      if (!mounted) return;
-      setBooks(docs.items || docs || []);
-      setTotal(docs.total ?? docs.items?.length ?? docs.length ?? 0);
-      setPage(1);
-      setSubjects(['Tất cả', ...nextSubjects]);
+        if (!mounted) return;
+        setBooks(docs.items || docs || []);
+        setTotal(docs.total ?? docs.items?.length ?? docs.length ?? 0);
+        setPage(1);
+        setSubjects(['Tất cả', ...nextSubjects]);
+      } catch (requestError) {
+        if (!mounted) return;
+        setBooks([]);
+        setTotal(0);
+        setSubjects(['Tất cả']);
+        setError(getApiErrorMessage(requestError, 'Không thể tải dữ liệu ban đầu cho trang thư viện.'));
+      }
     };
 
     load();
@@ -144,13 +177,43 @@ const LibraryPage = () => {
     }
   }, [saveAsDefault]);
 
+  useEffect(() => {
+    if (!saveRecentSearches) {
+      return;
+    }
+
+    const trimmed = debouncedKeyword.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const nextRecentSearches = [
+      trimmed,
+      ...recentSearches.filter((item) => item.toLowerCase() !== trimmed.toLowerCase()),
+    ].slice(0, 5);
+
+    setRecentSearches(nextRecentSearches);
+    window.localStorage.setItem(LIBRARY_RECENT_SEARCHES_KEY, JSON.stringify(nextRecentSearches));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedKeyword, saveRecentSearches]);
+
+  useEffect(() => {
+    window.localStorage.setItem(LIBRARY_RECENT_SEARCHES_PREF_KEY, saveRecentSearches ? '1' : '0');
+
+    if (!saveRecentSearches) {
+      setRecentSearches([]);
+      window.localStorage.removeItem(LIBRARY_RECENT_SEARCHES_KEY);
+    }
+  }, [saveRecentSearches]);
+
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
 
   const resetFilters = () => {
     setSelectedGrade('Tất cả');
     setSelectedCategory('Tất cả');
     setKeyword('');
-    fetchBooks(1);
+    setSortBy('newest');
+    setPage(1);
   };
 
   const handleCopyFilters = async () => {
@@ -175,6 +238,11 @@ const LibraryPage = () => {
     if (suggestion === 'Tất cả môn học') setSelectedCategory('Tất cả');
     if (suggestion === 'Tất cả khối lớp') setSelectedGrade('Tất cả');
     setPage(1);
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    window.localStorage.removeItem(LIBRARY_RECENT_SEARCHES_KEY);
   };
 
   return (
@@ -248,6 +316,47 @@ const LibraryPage = () => {
                   </button>
                 )}
               </div>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <label className="text-xs text-gray-500 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={saveRecentSearches}
+                    onChange={(event) => setSaveRecentSearches(event.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  Giữ lịch sử tìm kiếm
+                </label>
+              </div>
+
+              {recentSearches.length > 0 && saveRecentSearches && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-2 gap-3">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tìm gần đây</p>
+                    <button
+                      type="button"
+                      onClick={clearRecentSearches}
+                      className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition"
+                    >
+                      Xóa lịch sử
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {recentSearches.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => {
+                          setKeyword(item);
+                          setPage(1);
+                        }}
+                        className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
@@ -265,7 +374,19 @@ const LibraryPage = () => {
             <div>
               <p className="text-sm text-gray-500 italic">Hiển thị {books.length} kết quả (tổng {total})</p>
               {loading && <p className="text-sm text-blue-600 font-medium mt-1">Đang tìm kiếm...</p>}
-              {!loading && debouncedKeyword.trim() && books.length === 0 && (
+              {!loading && error && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-red-600">{error}</p>
+                  <button
+                    type="button"
+                    onClick={() => fetchBooks(page)}
+                    className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              )}
+              {!loading && !error && debouncedKeyword.trim() && books.length === 0 && (
                 <p className="text-sm text-amber-600 mt-1">Không có kết quả cho từ khóa "{debouncedKeyword.trim()}".</p>
               )}
             </div>
@@ -339,9 +460,28 @@ const LibraryPage = () => {
             </div>
           )}
 
-          {books.length === 0 && (
+          {!loading && books.length === 0 && !error && (
             <div className="text-center py-20 bg-white rounded-xl border border-dashed">
-              <p className="text-gray-400">Không tìm thấy tài liệu nào. Thử chọn khối khác bạn nhé! 📚</p>
+              <p className="text-gray-400 mb-4">Không tìm thấy tài liệu nào. Thử chọn khối khác bạn nhé! 📚</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {suggestionChips.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => applySuggestion(chip)}
+                    className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-semibold border border-blue-200 hover:bg-blue-100 transition"
+                  >
+                    {chip}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="px-3 py-1.5 rounded-full bg-white text-gray-700 text-sm font-semibold border border-gray-300 hover:bg-gray-100 transition"
+                >
+                  Đặt lại tất cả
+                </button>
+              </div>
             </div>
           )}
 

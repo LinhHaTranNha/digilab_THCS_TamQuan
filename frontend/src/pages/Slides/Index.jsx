@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import BookCard from '../../components/cards/BookCard';
-import { getDocumentsBySection, getUniqueSubjects } from '../../services/apiService';
+import { getApiErrorMessage, getDocumentsBySection, getUniqueSubjects } from '../../services/apiService';
 
 const PAGE_SIZE = 12;
 const SLIDE_FILTERS_STORAGE_KEY = 'digital-library-filters-slides';
 const SLIDE_SAVE_PREF_KEY = 'digital-library-filters-slides-enabled';
+const SLIDE_RECENT_SEARCHES_KEY = 'digital-library-recent-searches-slides';
+const SLIDE_RECENT_SEARCHES_PREF_KEY = 'digital-library-recent-searches-slides-enabled';
 
 const SlidePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,19 +19,30 @@ const SlidePage = () => {
   const [selectedGrade, setSelectedGrade] = useState('Tất cả');
   const [keyword, setKeyword] = useState(searchParams.get('q') || '');
   const [debouncedKeyword, setDebouncedKeyword] = useState(searchParams.get('q') || '');
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem(SLIDE_RECENT_SEARCHES_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [sortBy, setSortBy] = useState('newest');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [saveAsDefault, setSaveAsDefault] = useState(() => window.localStorage.getItem(SLIDE_SAVE_PREF_KEY) !== '0');
+  const [saveRecentSearches, setSaveRecentSearches] = useState(() => window.localStorage.getItem(SLIDE_RECENT_SEARCHES_PREF_KEY) !== '0');
   const [copyStatus, setCopyStatus] = useState('');
 
   useEffect(() => {
     const grade = searchParams.get('grade');
     const subject = searchParams.get('subject');
     const query = searchParams.get('q');
+    const sort = searchParams.get('sort');
     const pageParam = Number.parseInt(searchParams.get('page') || '1', 10);
 
-    if (!grade && !subject && !query && !searchParams.get('page') && saveAsDefault) {
+    if (!grade && !subject && !query && !sort && !searchParams.get('page') && saveAsDefault) {
       try {
         const savedRaw = window.localStorage.getItem(SLIDE_FILTERS_STORAGE_KEY);
         if (savedRaw) {
@@ -51,6 +64,7 @@ const SlidePage = () => {
     setFilterType(subject || 'Tất cả');
     setKeyword(query || '');
     setDebouncedKeyword(query || '');
+    setSortBy(sort || 'newest');
     setPage(Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam);
   }, [searchParamsKey, saveAsDefault]);
 
@@ -65,11 +79,20 @@ const SlidePage = () => {
     };
 
     setLoading(true);
-    const { items, total: nextTotal } = await getDocumentsBySection('slides', payload);
-    setSlides(items || []);
-    setTotal(nextTotal || 0);
-    setPage(nextPage);
-    setLoading(false);
+    setError('');
+
+    try {
+      const { items, total: nextTotal } = await getDocumentsBySection('slides', payload);
+      setSlides(items || []);
+      setTotal(nextTotal || 0);
+      setPage(nextPage);
+    } catch (requestError) {
+      setSlides([]);
+      setTotal(0);
+      setError(getApiErrorMessage(requestError, 'Không thể tải danh sách slides lúc này. Vui lòng thử lại sau.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateSearchParamsFromState = (pageValue = page) => {
@@ -97,17 +120,26 @@ const SlidePage = () => {
     let isMounted = true;
 
     const loadData = async () => {
-      const [docs, nextSubjects] = await Promise.all([
-        getDocumentsBySection('slides', { page: 1, pageSize: PAGE_SIZE }),
-        getUniqueSubjects('slides'),
-      ]);
+      try {
+        setError('');
+        const [docs, nextSubjects] = await Promise.all([
+          getDocumentsBySection('slides', { page: 1, pageSize: PAGE_SIZE }),
+          getUniqueSubjects('slides'),
+        ]);
 
-      if (!isMounted) return;
+        if (!isMounted) return;
 
-      setSlides(docs.items || docs || []);
-      setTotal(docs.total ?? docs.items?.length ?? docs.length ?? 0);
-      setPage(1);
-      setSubjects(['Tất cả', ...nextSubjects]);
+        setSlides(docs.items || docs || []);
+        setTotal(docs.total ?? docs.items?.length ?? docs.length ?? 0);
+        setPage(1);
+        setSubjects(['Tất cả', ...nextSubjects]);
+      } catch (requestError) {
+        if (!isMounted) return;
+        setSlides([]);
+        setTotal(0);
+        setSubjects(['Tất cả']);
+        setError(getApiErrorMessage(requestError, 'Không thể tải dữ liệu ban đầu cho trang slides.'));
+      }
     };
 
     loadData();
@@ -142,11 +174,42 @@ const SlidePage = () => {
     }
   }, [saveAsDefault]);
 
+  useEffect(() => {
+    if (!saveRecentSearches) {
+      return;
+    }
+
+    const trimmed = debouncedKeyword.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const nextRecentSearches = [
+      trimmed,
+      ...recentSearches.filter((item) => item.toLowerCase() !== trimmed.toLowerCase()),
+    ].slice(0, 5);
+
+    setRecentSearches(nextRecentSearches);
+    window.localStorage.setItem(SLIDE_RECENT_SEARCHES_KEY, JSON.stringify(nextRecentSearches));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedKeyword, saveRecentSearches]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SLIDE_RECENT_SEARCHES_PREF_KEY, saveRecentSearches ? '1' : '0');
+
+    if (!saveRecentSearches) {
+      setRecentSearches([]);
+      window.localStorage.removeItem(SLIDE_RECENT_SEARCHES_KEY);
+    }
+  }, [saveRecentSearches]);
+
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
 
   const resetFilters = () => {
     setFilterType('Tất cả');
     setSelectedGrade('Tất cả');
+    setKeyword('');
+    setSortBy('newest');
     setPage(1);
   };
 
@@ -172,6 +235,11 @@ const SlidePage = () => {
     if (suggestion === 'Tất cả môn học') setFilterType('Tất cả');
     if (suggestion === 'Tất cả khối lớp') setSelectedGrade('Tất cả');
     setPage(1);
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    window.localStorage.removeItem(SLIDE_RECENT_SEARCHES_KEY);
   };
 
   const activeFilters = [
@@ -239,6 +307,47 @@ const SlidePage = () => {
                 </button>
               )}
             </div>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <label className="text-xs text-gray-500 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={saveRecentSearches}
+                  onChange={(event) => setSaveRecentSearches(event.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                />
+                Giữ lịch sử tìm kiếm
+              </label>
+            </div>
+
+            {recentSearches.length > 0 && saveRecentSearches && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-2 gap-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tìm gần đây</p>
+                  <button
+                    type="button"
+                    onClick={clearRecentSearches}
+                    className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition"
+                  >
+                    Xóa lịch sử
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recentSearches.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => {
+                        setKeyword(item);
+                        setPage(1);
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -247,7 +356,19 @@ const SlidePage = () => {
             <div>
               <p className="text-sm text-gray-500 italic">Hiển thị {slides.length} kết quả (tổng {total})</p>
               {loading && <p className="text-sm text-indigo-600 font-medium mt-1">Đang tìm kiếm...</p>}
-              {!loading && debouncedKeyword.trim() && slides.length === 0 && (
+              {!loading && error && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-red-600">{error}</p>
+                  <button
+                    type="button"
+                    onClick={() => fetchSlides(page)}
+                    className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              )}
+              {!loading && !error && debouncedKeyword.trim() && slides.length === 0 && (
                 <p className="text-sm text-amber-600 mt-1">Không có kết quả cho từ khóa "{debouncedKeyword.trim()}".</p>
               )}
             </div>
@@ -321,9 +442,28 @@ const SlidePage = () => {
             </div>
           )}
 
-          {slides.length === 0 ? (
+          {!loading && slides.length === 0 && !error ? (
             <div className="text-center py-16 bg-white rounded-xl border border-dashed text-gray-400 mt-6">
-              Chưa có slide phù hợp với bộ lọc hiện tại.
+              <p className="mb-4">Chưa có slide phù hợp với bộ lọc hiện tại.</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {suggestionChips.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => applySuggestion(chip)}
+                    className="px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-sm font-semibold border border-indigo-200 hover:bg-indigo-100 transition"
+                  >
+                    {chip}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="px-3 py-1.5 rounded-full bg-white text-gray-700 text-sm font-semibold border border-gray-300 hover:bg-gray-100 transition"
+                >
+                  Đặt lại tất cả
+                </button>
+              </div>
             </div>
           ) : null}
 

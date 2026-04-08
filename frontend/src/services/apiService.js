@@ -171,6 +171,7 @@ export async function askAiAdvisor(payload) {
     subject: payload.subject,
     section: payload.section,
     resourceType: payload.resourceType,
+    examGoal: payload.examGoal,
   };
 
   try {
@@ -195,7 +196,7 @@ export async function askAiAdvisor(payload) {
       appliedSubjects: payload.subject ? [payload.subject] : null,
       appliedSection: payload.section || null,
       appliedResourceType: payload.resourceType || null,
-      appliedExamGoal: null,
+      appliedExamGoal: payload.examGoal || null,
     };
   }
 }
