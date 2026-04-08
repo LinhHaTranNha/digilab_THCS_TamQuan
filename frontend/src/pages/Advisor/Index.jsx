@@ -136,7 +136,7 @@ const AdvisorPage = () => {
     } else if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  }, [messages]);
+  }, [messages, loading]);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -470,6 +470,20 @@ const AdvisorPage = () => {
                     ) : null}
                   </div>
                 ))}
+
+                {loading && (
+                  <div className="rounded-2xl p-4 shadow-sm border bg-slate-50 border-slate-200 mr-auto max-w-[95%] animate-pulse">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider ml-1">Trợ lý đang suy nghĩ...</span>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
 
