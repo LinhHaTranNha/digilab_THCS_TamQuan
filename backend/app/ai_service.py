@@ -216,7 +216,7 @@ def rank_candidate_documents(
         for document in documents
     ]
     ranked.sort(key=lambda item: (item[0], item[1].created_at), reverse=True)
-    return [document for _, document in ranked[:limit]]
+    return [document for score, document in ranked if score > 0][:limit]
 
 
 def to_advisor_document(document: Document) -> AiAdvisorDocument:
@@ -277,6 +277,7 @@ def build_messages(
                 '(3) Giai thich ngan gon tai sao chon nhung tai lieu do. '
                 'Quy tac bat buoc: '
                 '- Chi duoc dua tren tai lieu trong danh sach, KHONG duoc bịa them tai lieu nao. '
+                '- Neu tai lieu khong dung mon hoc hoac khoi lop ma nguoi dung yeu cau (vi du nguoi dung hoi lop 5 nhung chi co lop 6), ban phai xac nhan la KHONG CO tai lieu phu hop thay vi goi y tai lieu khac mon/khoi. '
                 '- Neu co nhieu mon hoc, chia cau tra loi theo tung mon. '
                 '- Phai ket thuc bang mot dong JSON duy nhat theo DUNG dinh dang sau (khong them gi khac sau dong nay): '
                 '```json\n{"recommended_ids": ["doc-1", "doc-2"]}\n``` '

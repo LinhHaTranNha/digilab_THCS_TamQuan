@@ -1,3 +1,4 @@
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,6 +27,18 @@ from app.schemas import AiAdvisorDocument, AiAdvisorRequest, AiAdvisorResponse, 
 
 
 router = APIRouter(prefix='/ai', tags=['ai'])
+
+
+def has_grade_mismatch(question: str, applied_grade: str | None) -> bool:
+    if not applied_grade or applied_grade == 'Tất cả':
+        return False
+
+    match = re.search(r'(?:lớp|lop|khối|khoi)\s*(\d)', question.lower())
+    if not match:
+        return False
+
+    requested_grade = f'Khối {match.group(1)}'
+    return requested_grade != applied_grade
 
 
 def normalize_subjects(subjects: list[str] | None) -> list[str] | None:
@@ -86,6 +99,19 @@ def advisor(
     applied_section = payload.section or inferred_section
     applied_resource_type = payload.resource_type or inferred_resource_type
 
+    if has_grade_mismatch(question, applied_grade):
+        return AiAdvisorResponse(
+            answer='Hiện chưa có tài liệu đúng khối bạn hỏi. Thử đổi khối hoặc thêm tài liệu mới nhé.',
+            recommended_documents=[],
+            applied_grade=applied_grade,
+            applied_subject=applied_subject,
+            applied_subjects=applied_subjects,
+            applied_section=applied_section,
+            applied_resource_type=applied_resource_type,
+            applied_exam_goal=applied_exam_goal,
+            plan_by_subject=[],
+        )
+
     query = select(Document)
 
     # Only grade filter is applied at DB level (most reliable signal).
@@ -114,7 +140,7 @@ def advisor(
 
     if not advisor_documents:
         return AiAdvisorResponse(
-            answer='Hien chua co tai lieu phu hop voi bo loc hoac cau hoi nay. Ban hay thu doi mon hoc, khoi lop hoac mo rong dieu kien tim kiem.',
+            answer='Hiện chưa có tài liệu phù hợp với câu hỏi hoặc bộ lọc này. Thử đổi môn, khối hoặc bớt điều kiện nhé.',
             recommended_documents=[],
             applied_grade=applied_grade,
             applied_subject=applied_subject,
