@@ -1035,7 +1035,7 @@ const AdvisorPage = () => {
                               <button
                                 type="button"
                                 onClick={() => setExpandedHistoryIndex((prev) => (prev === index ? -1 : index))}
-                                className="px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                                className="btn-ghost text-[11px] px-3 py-1.5"
                               >
                                 {expandedHistoryIndex === index ? 'Thu gọn' : 'Xem cảnh báo'}
                               </button>
@@ -1043,7 +1043,7 @@ const AdvisorPage = () => {
                             <button
                               type="button"
                               onClick={() => copyImportHistoryEntry(item)}
-                              className="px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                              className="btn-ghost text-[11px] px-3 py-1.5"
                             >
                               Sao chép mục này
                             </button>
@@ -1051,7 +1051,7 @@ const AdvisorPage = () => {
                               <button
                                 type="button"
                                 onClick={() => copyImportHistorySnapshot(item)}
-                                className="px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                                className="btn-ghost text-[11px] px-3 py-1.5"
                               >
                                 Sao chép JSON
                               </button>
@@ -1060,7 +1060,7 @@ const AdvisorPage = () => {
                               <button
                                 type="button"
                                 onClick={() => restoreImportHistoryEntry(index)}
-                                className="px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-100 transition"
+                                className="btn-ghost text-[11px] px-3 py-1.5 text-emerald-700 border-emerald-200"
                               >
                                 Khôi phục
                               </button>

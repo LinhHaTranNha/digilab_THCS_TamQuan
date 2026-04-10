@@ -55,7 +55,7 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center px-4 py-2 rounded-xl font-semibold text-white transition;
+    @apply inline-flex min-h-11 items-center justify-center px-4 py-2 rounded-xl font-semibold text-white transition;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-strong) 100%);
   }
 
@@ -64,7 +64,7 @@
   }
 
   .btn-soft {
-    @apply inline-flex items-center justify-center px-4 py-2 rounded-xl font-semibold transition border;
+    @apply inline-flex min-h-11 items-center justify-center px-4 py-2 rounded-xl font-semibold transition border;
     color: #1e293b;
     border-color: var(--border);
     background: #fff;
@@ -74,8 +74,15 @@
     background: var(--surface-soft);
   }
 
+  .btn-soft:focus-visible,
+  .btn-primary:focus-visible,
+  .btn-ghost:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.45);
+  }
+
   .btn-ghost {
-    @apply inline-flex items-center justify-center px-3 py-2 rounded-xl font-semibold transition border;
+    @apply inline-flex min-h-11 items-center justify-center px-3.5 py-2 rounded-xl font-semibold transition border;
     color: #0f172a;
     border-color: var(--border);
     background: transparent;
@@ -112,6 +119,7 @@
     color: #e2e8f0;
     border-color: #0f172a;
     box-shadow: 0 10px 25px -12px rgba(15, 23, 42, 0.7);
+    min-height: 44px;
   }
 
   .doc-card {
