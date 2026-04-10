@@ -10,11 +10,49 @@ const initialFilters = {
   resourceType: 'Tất cả',
 };
 
+const advisorPresets = [
+  {
+    key: 'entrance-exam',
+    label: 'Ôn thi vào 10',
+    filters: { grade: 'Khối 9', section: 'exams', resourceType: 'Đề thi' },
+  },
+  {
+    key: 'quick-practice',
+    label: 'Luyện đề nhanh',
+    filters: { section: 'exams', resourceType: 'Đề cương' },
+  },
+  {
+    key: 'foundation-review',
+    label: 'Học lại nền tảng',
+    filters: { section: 'library', resourceType: 'Tài liệu' },
+  },
+];
+
 const hasActiveFilters = (filters) => Object.values(filters).some((value) => value !== 'Tất cả');
+
+const getActivePresetKey = (filters) => {
+  const entries = {
+    'entrance-exam': { grade: 'Khối 9', section: 'exams', resourceType: 'Đề thi' },
+    'quick-practice': { section: 'exams', resourceType: 'Đề cương' },
+    'foundation-review': { section: 'library', resourceType: 'Tài liệu' },
+  };
+
+  return Object.entries(entries).find(([, preset]) => {
+    return Object.entries(preset).every(([key, value]) => filters[key] === value);
+  })?.[0];
+};
 
 const ADVISOR_CHAT_STORAGE_KEY = 'digilib-advisor-chat';
 const ADVISOR_FILTER_STORAGE_KEY = 'digilib-advisor-filters';
+const ADVISOR_RECENT_QUESTIONS_KEY = 'digilib-advisor-recent-questions';
+const ADVISOR_PINNED_PROMPTS_KEY = 'digilib-advisor-pinned-prompts';
+const ADVISOR_KEEP_QUESTION_PREF_KEY = 'digilib-advisor-keep-question';
+const ADVISOR_KEEP_FILTERS_PREF_KEY = 'digilib-advisor-keep-filters';
+const ADVISOR_CUSTOM_PRESETS_KEY = 'digilib-advisor-custom-presets';
 
+// Advisor UI rule: keep this page minimal and stable.
+// Primary flow only: choose filters -> ask -> get answer.
+// Avoid adding secondary controls unless they clearly improve the main task.
 const normalizeAdvisorAnswer = (text = '') => {
   if (!text) return '';
 
@@ -70,11 +108,51 @@ const AdvisorPage = () => {
       return [];
     }
   });
+  const [recentQuestions, setRecentQuestions] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(ADVISOR_RECENT_QUESTIONS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.slice(0, 6) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [pinnedPrompts, setPinnedPrompts] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(ADVISOR_PINNED_PROMPTS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.slice(0, 8) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [keepQuestionAfterSend, setKeepQuestionAfterSend] = useState(() => window.localStorage.getItem(ADVISOR_KEEP_QUESTION_PREF_KEY) === '1');
+  const [keepFiltersAfterSend, setKeepFiltersAfterSend] = useState(() => window.localStorage.getItem(ADVISOR_KEEP_FILTERS_PREF_KEY) === '1');
+  const [customPresets, setCustomPresets] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(ADVISOR_CUSTOM_PRESETS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.slice(0, 6) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const [filterNotice, setFilterNotice] = useState('');
+  const [lastResetFilters, setLastResetFilters] = useState(null);
+  const [importWarnings, setImportWarnings] = useState([]);
+  const [importWarningStats, setImportWarningStats] = useState({ skipped: 0, normalized: 0, duplicate: 0 });
+  const [lastImportAt, setLastImportAt] = useState('');
+  const [importHistory, setImportHistory] = useState([]);
+  const [showImportWarnings, setShowImportWarnings] = useState(true);
+  const [warningFilter, setWarningFilter] = useState('all');
+  const [expandedWarnings, setExpandedWarnings] = useState(false);
   const [copyNotice, setCopyNotice] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState('');
 
@@ -90,26 +168,19 @@ const AdvisorPage = () => {
     return 'Bạn có thể đặt câu hỏi như học sinh để thử tư vấn tài liệu từ metadata hiện có.';
   }, [currentUser]);
 
-  const suggestionChips = useMemo(() => {
-    const chips = [];
+  const activePresetKey = useMemo(() => getActivePresetKey(filters), [filters]);
 
-    if (currentUser?.grade) {
-      chips.push(`Lập kế hoạch ôn ${currentUser.grade} trong 2 tuần cho em.`);
+  const activePresetLabel = useMemo(() => {
+    if (activePresetKey) {
+      return advisorPresets.find((preset) => preset.key === activePresetKey)?.label || 'Preset hệ thống';
     }
 
-    if (filters.subject !== 'Tất cả') {
-      chips.push(`Tóm tắt lộ trình học ${filters.subject} theo mức độ từ dễ đến khó.`);
+    if (hasActiveFilters(filters)) {
+      return 'Tùy chỉnh';
     }
 
-    if (filters.section === 'exams') {
-      chips.push('Gợi ý bộ đề thi nên làm trước và cách chia thời gian luyện đề.');
-    }
-
-    chips.push('Nếu em chỉ có 30 phút mỗi ngày thì nên học thế nào?');
-    chips.push('Chọn giúp em 3 tài liệu khởi đầu dễ hiểu nhất.');
-
-    return chips.slice(0, 4);
-  }, [currentUser, filters]);
+    return 'Mặc định';
+  }, [activePresetKey, filters]);
 
   useEffect(() => {
     window.localStorage.setItem(ADVISOR_FILTER_STORAGE_KEY, JSON.stringify(filters));
@@ -147,6 +218,27 @@ const AdvisorPage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    window.localStorage.setItem(ADVISOR_KEEP_QUESTION_PREF_KEY, keepQuestionAfterSend ? '1' : '0');
+  }, [keepQuestionAfterSend]);
+
+  useEffect(() => {
+    window.localStorage.setItem(ADVISOR_KEEP_FILTERS_PREF_KEY, keepFiltersAfterSend ? '1' : '0');
+  }, [keepFiltersAfterSend]);
+
+  useEffect(() => {
+    if (!importWarnings.length) {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setImportWarnings([]);
+      setLastImportAt('');
+    }, 6000);
+
+    return () => window.clearTimeout(timeout);
+  }, [importWarnings]);
+
   const submitQuestion = async (customQuestion) => {
     const nextQuestion = (customQuestion ?? question).trim();
 
@@ -164,6 +256,13 @@ const AdvisorPage = () => {
     };
 
     setMessages((previous) => [...previous, userMessage]);
+
+    const nextRecentQuestions = [
+      nextQuestion,
+      ...recentQuestions.filter((item) => item.toLowerCase() !== nextQuestion.toLowerCase()),
+    ].slice(0, 6);
+    setRecentQuestions(nextRecentQuestions);
+    window.localStorage.setItem(ADVISOR_RECENT_QUESTIONS_KEY, JSON.stringify(nextRecentQuestions));
 
     try {
       const response = await askAiAdvisor({
@@ -191,7 +290,12 @@ const AdvisorPage = () => {
           },
         },
       ]);
-      setQuestion('');
+      if (!keepQuestionAfterSend) {
+        setQuestion('');
+      }
+      if (!keepFiltersAfterSend) {
+        setFilters(initialFilters);
+      }
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, 'Không thể kết nối trợ lý AI lúc này.'));
       setMessages((previous) => previous.filter((message) => message.id !== userMessage.id));
@@ -287,24 +391,345 @@ const AdvisorPage = () => {
     }
   };
 
+  const handleCopyFullExchange = async (userText, assistantText, documents = [], appliedFilters, messageId) => {
+    const documentLines = documents.map((document, index) => `${index + 1}. ${document.title} — ${document.subject} · ${document.grade}${document.pdfUrl ? `\n   ${document.pdfUrl}` : ''}`);
+
+    const payload = [
+      'Hỏi:',
+      userText,
+      '\nTrả lời:',
+      `${assistantText}${formatFilters(appliedFilters)}`,
+      documentLines.length ? '\nTài liệu gợi ý:' : null,
+      documentLines.length ? documentLines.join('\n') : null,
+    ].filter(Boolean).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopiedMessageId(messageId || '');
+      setCopyNotice('Đã sao chép cả câu hỏi và câu trả lời.');
+      window.setTimeout(() => {
+        setCopyNotice('');
+        setCopiedMessageId('');
+      }, 2200);
+    } catch {
+      setCopyNotice('Không thể sao chép nội dung trao đổi.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    }
+  };
+
+  const togglePinnedPrompt = (prompt) => {
+    const exists = pinnedPrompts.some((item) => item.toLowerCase() === prompt.toLowerCase());
+
+    const nextPinnedPrompts = exists
+      ? pinnedPrompts.filter((item) => item.toLowerCase() !== prompt.toLowerCase())
+      : [prompt, ...pinnedPrompts].slice(0, 8);
+
+    setPinnedPrompts(nextPinnedPrompts);
+    window.localStorage.setItem(ADVISOR_PINNED_PROMPTS_KEY, JSON.stringify(nextPinnedPrompts));
+  };
+
+  const pinCurrentQuestion = () => {
+    const nextQuestion = question.trim();
+    if (!nextQuestion) {
+      return;
+    }
+
+    const exists = pinnedPrompts.some((item) => item.toLowerCase() === nextQuestion.toLowerCase());
+    if (exists) {
+      setCopyNotice('Câu hỏi này đã được ghim trước đó.');
+      window.setTimeout(() => setCopyNotice(''), 2000);
+      return;
+    }
+
+    const nextPinnedPrompts = [nextQuestion, ...pinnedPrompts].slice(0, 8);
+    setPinnedPrompts(nextPinnedPrompts);
+    window.localStorage.setItem(ADVISOR_PINNED_PROMPTS_KEY, JSON.stringify(nextPinnedPrompts));
+    setCopyNotice('Đã ghim câu hỏi hiện tại.');
+    window.setTimeout(() => setCopyNotice(''), 2000);
+  };
+
+  const saveCurrentAsPreset = () => {
+    setImportWarnings([]);
+    setLastImportAt('');
+    const presetName = window.prompt('Tên preset (ví dụ: Ôn Văn cuối tuần):');
+    const nextName = presetName?.trim();
+
+    if (!nextName) {
+      return;
+    }
+
+    const exists = customPresets.some((item) => item.name.toLowerCase() === nextName.toLowerCase());
+    const nextPreset = { name: nextName, filters };
+
+    const nextCustomPresets = exists
+      ? customPresets.map((item) => (item.name.toLowerCase() === nextName.toLowerCase() ? nextPreset : item))
+      : [nextPreset, ...customPresets].slice(0, 6);
+
+    setCustomPresets(nextCustomPresets);
+    window.localStorage.setItem(ADVISOR_CUSTOM_PRESETS_KEY, JSON.stringify(nextCustomPresets));
+    setFilterNotice(`Đã lưu preset: ${nextName}`);
+    window.setTimeout(() => setFilterNotice(''), 2200);
+  };
+
+  const duplicateCustomPreset = (name) => {
+    setImportWarnings([]);
+    setLastImportAt('');
+    const existingPreset = customPresets.find((item) => item.name === name);
+    if (!existingPreset) {
+      return;
+    }
+
+    const nextName = window.prompt('Lưu thành preset mới:', `${name} bản sao`)?.trim();
+    if (!nextName) {
+      return;
+    }
+
+    const exists = customPresets.some((item) => item.name.toLowerCase() === nextName.toLowerCase());
+    if (exists) {
+      setFilterNotice(`Preset ${nextName} đã tồn tại.`);
+      window.setTimeout(() => setFilterNotice(''), 2200);
+      return;
+    }
+
+    const nextCustomPresets = [{ ...existingPreset, name: nextName }, ...customPresets].slice(0, 6);
+    setCustomPresets(nextCustomPresets);
+    window.localStorage.setItem(ADVISOR_CUSTOM_PRESETS_KEY, JSON.stringify(nextCustomPresets));
+    setFilterNotice(`Đã tạo preset mới: ${nextName}`);
+    window.setTimeout(() => setFilterNotice(''), 2200);
+  };
+
+  const exportCustomPresets = () => {
+    if (!customPresets.length) {
+      setFilterNotice('Không có preset tùy chỉnh để xuất.');
+      window.setTimeout(() => setFilterNotice(''), 1800);
+      return;
+    }
+
+    const payload = JSON.stringify(customPresets, null, 2);
+    window.prompt('Sao chép JSON presets:', payload);
+  };
+
+  const importCustomPresets = () => {
+    setImportWarnings([]);
+    setImportWarningStats({ skipped: 0, normalized: 0, duplicate: 0 });
+    setLastImportAt('');
+    setShowImportWarnings(true);
+    const input = window.prompt('Dán JSON presets (định dạng: [{ name, filters }]):');
+    if (!input) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(input);
+      if (!Array.isArray(parsed)) {
+        throw new Error('Preset JSON phải là mảng');
+      }
+
+      const warnings = [];
+      const stats = { skipped: 0, normalized: 0, duplicate: 0 };
+      const normalized = parsed
+        .slice(0, 6)
+        .map((item, index) => {
+          const nextName = typeof item.name === 'string' ? item.name.trim() : '';
+          if (!nextName) {
+            warnings.push(`Mục ${index + 1}: thiếu tên preset, đã bỏ qua.`);
+            stats.skipped += 1;
+            return null;
+          }
+
+          const hasValidFilters = typeof item.filters === 'object' && item.filters;
+          if (!hasValidFilters) {
+            warnings.push(`Mục ${index + 1} (${nextName}): thiếu filters, dùng mặc định.`);
+            stats.normalized += 1;
+          }
+
+          return {
+            name: nextName,
+            filters: {
+              ...initialFilters,
+              ...(hasValidFilters ? item.filters : {}),
+            },
+          };
+        })
+        .filter(Boolean);
+
+      if (!normalized.length) {
+        throw new Error('Không có preset hợp lệ để nhập.');
+      }
+
+      const mode = window.prompt('Nhập "replace" để thay thế, hoặc bất kỳ để nối thêm (tối đa 6).', 'append')?.toLowerCase();
+      const merged = mode === 'replace'
+        ? normalized
+        : [...normalized, ...customPresets]
+            .reduce((acc, item) => {
+              if (!acc.find((x) => x.name.toLowerCase() === item.name.toLowerCase())) {
+                acc.push(item);
+              } else {
+                warnings.push(`Preset trùng tên bị bỏ qua: ${item.name}`);
+                stats.duplicate += 1;
+              }
+              return acc;
+            }, [])
+            .slice(0, 6);
+
+      const importedCount = normalized.length;
+      const finalCount = merged.length;
+      const duplicateCount = Math.max(0, stats.duplicate);
+      const importedAt = new Date().toLocaleString('vi-VN');
+
+      setCustomPresets(merged);
+      setImportWarnings(warnings.slice(0, 6));
+      setImportWarningStats({ ...stats, skipped: stats.skipped, normalized: stats.normalized, duplicate: duplicateCount });
+      setLastImportAt(importedAt);
+      setImportHistory((previous) => [
+        {
+          time: importedAt,
+          mode: mode === 'replace' ? 'replace' : 'append',
+          imported: importedCount,
+          duplicates: duplicateCount,
+          total: finalCount,
+        },
+        ...previous,
+      ].slice(0, 3));
+      setShowImportWarnings(true);
+      setWarningFilter('all');
+      setExpandedWarnings(false);
+      window.localStorage.setItem(ADVISOR_CUSTOM_PRESETS_KEY, JSON.stringify(merged));
+      setFilterNotice(
+        mode === 'replace'
+          ? `Đã thay thế presets (nhập: ${importedCount}, giữ: ${finalCount}).`
+          : `Đã nối thêm presets (nhập: ${importedCount}, trùng: ${duplicateCount}, tổng: ${finalCount}).`
+      );
+      window.setTimeout(() => setFilterNotice(''), 2200);
+    } catch (e) {
+      setImportWarnings([]);
+      setImportWarningStats({ skipped: 0, normalized: 0, duplicate: 0 });
+      setLastImportAt('');
+      setFilterNotice('Không thể nhập preset. Kiểm tra JSON.');
+      window.setTimeout(() => setFilterNotice(''), 2200);
+    }
+  };
+
+  const renameCustomPreset = (name) => {
+    const existingPreset = customPresets.find((item) => item.name === name);
+    if (!existingPreset) {
+      return;
+    }
+
+    const nextName = window.prompt('Đổi tên preset:', name)?.trim();
+    if (!nextName || nextName === name) {
+      return;
+    }
+
+    const hasDuplicateName = customPresets.some(
+      (item) => item.name.toLowerCase() === nextName.toLowerCase() && item.name !== name,
+    );
+
+    if (hasDuplicateName) {
+      setFilterNotice(`Preset ${nextName} đã tồn tại.`);
+      window.setTimeout(() => setFilterNotice(''), 2200);
+      return;
+    }
+
+    const nextCustomPresets = customPresets.map((item) =>
+      item.name === name ? { ...item, name: nextName } : item
+    );
+
+    setCustomPresets(nextCustomPresets);
+    window.localStorage.setItem(ADVISOR_CUSTOM_PRESETS_KEY, JSON.stringify(nextCustomPresets));
+    setFilterNotice(`Đã đổi tên preset thành: ${nextName}`);
+    window.setTimeout(() => setFilterNotice(''), 2200);
+  };
+
+  const moveCustomPreset = (name, direction) => {
+    const index = customPresets.findIndex((item) => item.name === name);
+    if (index < 0) {
+      return;
+    }
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= customPresets.length) {
+      return;
+    }
+
+    const nextCustomPresets = [...customPresets];
+    const [moved] = nextCustomPresets.splice(index, 1);
+    nextCustomPresets.splice(targetIndex, 0, moved);
+
+    setCustomPresets(nextCustomPresets);
+    window.localStorage.setItem(ADVISOR_CUSTOM_PRESETS_KEY, JSON.stringify(nextCustomPresets));
+  };
+
+  const removeCustomPreset = (name) => {
+    const nextCustomPresets = customPresets.filter((item) => item.name !== name);
+    setCustomPresets(nextCustomPresets);
+    window.localStorage.setItem(ADVISOR_CUSTOM_PRESETS_KEY, JSON.stringify(nextCustomPresets));
+  };
+
+  const copyImportWarnings = async () => {
+    if (!importWarnings.length) {
+      return;
+    }
+
+    const payload = [
+      'Cảnh báo nhập preset:',
+      ...importWarnings.map((item, index) => `${index + 1}. ${item}`),
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopyNotice('Đã sao chép cảnh báo nhập preset.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    } catch {
+      setCopyNotice('Không thể sao chép cảnh báo.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    }
+  };
+
+  const copyCustomPresetsJson = async () => {
+    if (!customPresets.length) {
+      setCopyNotice('Không có preset để sao chép.');
+      window.setTimeout(() => setCopyNotice(''), 2000);
+      return;
+    }
+
+    const payload = JSON.stringify(customPresets, null, 2);
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopyNotice('Đã sao chép JSON presets.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    } catch {
+      setCopyNotice('Không thể sao chép JSON presets.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    }
+  };
+
   return (
     <div className="h-screen overflow-hidden bg-slate-50">
       <section className="h-full overflow-hidden bg-[radial-gradient(circle_at_top,_#e8f0ff,_#f8fbff_45%,_#f8fafc)] border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 py-6 grid lg:grid-cols-[0.9fr,1.1fr] gap-6 items-stretch h-full overflow-hidden">
-          <div className="overflow-y-auto pr-1">
-            <p className="text-xs uppercase tracking-[0.3em] text-blue-600 mb-2">Trợ lý AI</p>
-            <h1 className="text-3xl font-black text-slate-900 mb-3">Tư vấn tài liệu học tập theo nhu cầu</h1>
-            <p className="text-slate-600 leading-8 mb-6">
+        <div className="max-w-7xl mx-auto px-4 py-6 grid lg:grid-cols-[0.88fr,1.12fr] gap-5 items-stretch h-full overflow-hidden">
+          <div className="overflow-y-auto pr-1 space-y-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-blue-600">Trợ lý AI</p>
+            <h1 className="text-3xl font-black text-slate-900">Tư vấn tài liệu học tập theo nhu cầu</h1>
+            <p className="text-slate-600 leading-8">
               Khung chat này chỉ gọi tới backend của DigiLib. Backend sẽ chọn shortlist tài liệu từ cơ sở dữ liệu rồi mới gửi metadata đó sang mô hình AI.
             </p>
-            <div className="mt-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              {helperText}
+            </div>
+
+            <div className="card-surface p-5 space-y-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Bộ lọc tìm tài liệu</p>
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <label className="text-sm font-semibold text-slate-700">
                   Khối lớp
                   <select
                     value={filters.grade}
                     onChange={(event) => updateFilter('grade', event.target.value)}
-                    className="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
+                    className="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 bg-white outline-none transition focus:ring-2 focus:ring-blue-500"
                   >
                     {['Tất cả', 'Khối 6', 'Khối 7', 'Khối 8', 'Khối 9'].map((grade) => (
                       <option key={grade} value={grade}>{grade}</option>
@@ -316,7 +741,7 @@ const AdvisorPage = () => {
                   <select
                     value={filters.subject}
                     onChange={(event) => updateFilter('subject', event.target.value)}
-                    className="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
+                    className="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 bg-white outline-none transition focus:ring-2 focus:ring-blue-500"
                   >
                     {['Tất cả', 'Toán', 'Văn', 'Tiếng Anh', 'Vật lý', 'Hóa học', 'Sinh học', 'Lịch sử', 'Địa lý'].map((subject) => (
                       <option key={subject} value={subject}>{subject}</option>
@@ -328,7 +753,7 @@ const AdvisorPage = () => {
                   <select
                     value={filters.section}
                     onChange={(event) => updateFilter('section', event.target.value)}
-                    className="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
+                    className="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 bg-white outline-none transition focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Tất cả">Tất cả</option>
                     <option value="library">Thư viện</option>
@@ -341,7 +766,7 @@ const AdvisorPage = () => {
                   <select
                     value={filters.resourceType}
                     onChange={(event) => updateFilter('resourceType', event.target.value)}
-                    className="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
+                    className="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 bg-white outline-none transition focus:ring-2 focus:ring-blue-500"
                   >
                     {['Tất cả', 'Ebook', 'Tài liệu', 'Đề thi', 'Đề cương', 'Slide'].map((type) => (
                       <option key={type} value={type}>{type}</option>
@@ -350,10 +775,147 @@ const AdvisorPage = () => {
                 </label>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 {filterNotice && (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-relaxed font-medium text-emerald-700">
                     {filterNotice}
+                  </div>
+                )}
+
+                {importWarnings.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between gap-3 shadow-sm">
+                    <span>
+                      {showImportWarnings ? 'Cảnh báo nhập preset đang hiển thị.' : 'Đã ẩn cảnh báo nhập preset.'}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowImportWarnings((value) => !value)}
+                        className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition"
+                      >
+                        {showImportWarnings ? 'Ẩn cảnh báo' : 'Hiện lại'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImportWarnings([]);
+                          setImportWarningStats({ skipped: 0, normalized: 0, duplicate: 0 });
+                          setLastImportAt('');
+                          setWarningFilter('all');
+                          setExpandedWarnings(false);
+                          setShowImportWarnings(true);
+                        }}
+                        className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition"
+                      >
+                        Xóa cảnh báo
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {showImportWarnings && importWarnings.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <p className="font-semibold">Lưu ý khi nhập preset:</p>
+                        {lastImportAt && (
+                          <p className="text-xs text-amber-700 mt-1">Lần nhập gần nhất: {lastImportAt}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={copyImportWarnings}
+                          className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition"
+                        >
+                          Sao chép cảnh báo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowImportWarnings(false);
+                            setWarningFilter('all');
+                          }}
+                          className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition"
+                        >
+                          Đóng
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {importWarningStats.skipped > 0 && (
+                        <span className="px-2 py-1 rounded-full bg-white border border-amber-200 text-xs font-semibold">
+                          Bỏ qua: {importWarningStats.skipped}
+                        </span>
+                      )}
+                      {importWarningStats.normalized > 0 && (
+                        <span className="px-2 py-1 rounded-full bg-white border border-amber-200 text-xs font-semibold">
+                          Chuẩn hóa: {importWarningStats.normalized}
+                        </span>
+                      )}
+                      {importWarningStats.duplicate > 0 && (
+                        <span className="px-2 py-1 rounded-full bg-white border border-amber-200 text-xs font-semibold">
+                          Trùng: {importWarningStats.duplicate}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {[
+                        { key: 'all', label: 'Tất cả' },
+                        { key: 'skipped', label: 'Bỏ qua' },
+                        { key: 'normalized', label: 'Chuẩn hóa' },
+                        { key: 'duplicate', label: 'Trùng' },
+                      ].map((option) => (
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={() => setWarningFilter(option.key)}
+                          className={`px-2 py-1 rounded-full text-xs font-semibold border transition ${
+                            warningFilter === option.key
+                              ? 'bg-amber-700 text-white border-amber-700'
+                              : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-100'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <ul className="list-disc ml-5 space-y-1">
+                      {importWarnings
+                        .filter((warning) => {
+                          if (warningFilter === 'all') return true;
+                          if (warningFilter === 'skipped') return warning.includes('bỏ qua');
+                          if (warningFilter === 'normalized') return warning.includes('dùng mặc định');
+                          if (warningFilter === 'duplicate') return warning.includes('trùng tên');
+                          return true;
+                        })
+                        .slice(0, expandedWarnings ? 99 : 3)
+                        .map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                    </ul>
+                    {importWarnings.length > 3 && (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedWarnings((value) => !value)}
+                        className="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900 transition"
+                      >
+                        {expandedWarnings ? 'Thu gọn' : 'Xem thêm'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {importHistory.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                    <p className="font-semibold mb-2">Lịch sử nhập gần đây</p>
+                    <ul className="space-y-1 text-xs">
+                      {importHistory.map((item, index) => (
+                        <li key={`${item.time}-${index}`}>
+                          {item.time} · {item.mode === 'replace' ? 'thay thế' : 'nối thêm'} · nhập {item.imported} · trùng {item.duplicates} · tổng {item.total}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
@@ -366,21 +928,21 @@ const AdvisorPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col min-h-[600px] max-h-[78vh]">
+          <div className="card-surface p-5 flex flex-col min-h-[600px] max-h-[78vh] gap-4">
 
-            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col flex-1 min-h-0">
+            <div className="flex flex-col flex-1 min-h-0">
               <div
                 ref={messagesContainerRef}
-                className="space-y-4 flex-1 min-h-[220px] overflow-y-auto pr-2 custom-scrollbar"
+                className="space-y-4 flex-1 min-h-[220px] overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/60 p-3 pr-2 custom-scrollbar"
               >
                 {messages.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-slate-500 text-sm">
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-9 text-center text-slate-500 text-sm">
                     Chưa có hội thoại nào. Hãy bắt đầu bằng một câu hỏi về nhu cầu học tập của học sinh.
                   </div>
                 ) : null}
 
-                {messages.map((message) => (
-                  <div key={message.id} className={`rounded-2xl p-4 shadow-sm border ${message.role === 'user' ? 'bg-slate-800 text-white border-slate-800 ml-auto max-w-[85%]' : 'bg-slate-50 border-slate-200 mr-auto max-w-[95%]'}`}>
+                {messages.map((message, index) => (
+                  <div key={message.id} className={`rounded-2xl p-4 shadow-sm border ${message.role === 'user' ? 'bg-slate-800 text-white border-slate-800 ml-auto max-w-[85%]' : 'bg-white border-slate-200 mr-auto max-w-[95%]'}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                       <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${message.role === 'user' ? 'text-slate-300' : 'text-blue-600'}`}>
                         {message.role === 'user' ? 'Bạn' : 'Trợ lý AI'}
@@ -405,7 +967,7 @@ const AdvisorPage = () => {
                           <button
                             type="button"
                             onClick={() => applyFiltersFromMessage(message.appliedFilters)}
-                            className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 text-[10px] font-bold hover:bg-slate-100 transition"
+                            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
                           >
                             Dùng lại bộ lọc
                           </button>
@@ -413,16 +975,32 @@ const AdvisorPage = () => {
                         <button
                           type="button"
                           onClick={() => handleCopyAnswer(message.text, `${message.id}-text`, message.appliedFilters)}
-                          className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 text-[10px] font-bold hover:bg-slate-100 transition"
+                          className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
                         >
                           {copiedMessageId === `${message.id}-text` ? 'Đã chép' : 'Chép câu trả lời'}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleCopyAnswerWithDocuments(message.text, message.recommendedDocuments || [], `${message.id}-bundle`, message.appliedFilters)}
-                          className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 text-[10px] font-bold hover:bg-slate-100 transition"
+                          className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
                         >
                           {copiedMessageId === `${message.id}-bundle` ? 'Đã chép' : 'Chép kèm tài liệu'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const prevUser = messages.slice(0, index).reverse().find((item) => item.role === 'user');
+                            handleCopyFullExchange(
+                              prevUser?.text || 'Không tìm thấy câu hỏi trước đó.',
+                              message.text,
+                              message.recommendedDocuments || [],
+                              message.appliedFilters,
+                              `${message.id}-exchange`
+                            );
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                        >
+                          {copiedMessageId === `${message.id}-exchange` ? 'Đã chép' : 'Chép cả trao đổi'}
                         </button>
                       </div>
                     ) : null}
@@ -487,10 +1065,12 @@ const AdvisorPage = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-3 pt-3 border-t border-slate-200 space-y-4 bg-white">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <label className="block text-sm font-semibold text-slate-700">
-                  Câu hỏi dành cho trợ lý
-                  <div className="mt-2 flex items-end gap-2">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span>Nhập câu hỏi</span>
+                  </div>
+                  <div className="mt-2 flex items-end gap-3">
                     <textarea
                       value={question}
                       onChange={(event) => setQuestion(event.target.value)}
@@ -498,17 +1078,20 @@ const AdvisorPage = () => {
                       rows="4"
                       maxLength={500}
                       placeholder="Gõ câu hỏi... (Enter để gửi, Shift+Enter xuống dòng)"
-                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white shadow-sm outline-none transition focus:ring-2 focus:ring-blue-500 resize-none"
                     />
                     <button
                       type="submit"
                       disabled={loading || question.trim().length < 3}
-                      className="h-[46px] px-4 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+                      className="h-[46px] px-5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
                     >
                       {loading ? '...' : 'Gửi'}
                     </button>
                   </div>
                 </label>
+
+
+
 
                 {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-red-700">{error}</div> : null}
 

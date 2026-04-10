@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  getApiErrorMessage,
   getAuthorStats,
   getDocuments,
   getSectionLabel,
@@ -36,6 +37,7 @@ const HomePage = () => {
   const [subjectTarget, setSubjectTarget] = useState('library');
   const [authorStats, setAuthorStats] = useState([]);
   const [authorStatsLoading, setAuthorStatsLoading] = useState(false);
+  const [errorBanner, setErrorBanner] = useState('');
   const categories = [
     { n: 'Ebooks', i: '📖', c: 'bg-blue-50', path: '/library' },
     { n: 'Đề thi & Đề cương', i: '📝', c: 'bg-green-50', path: '/exams' },
@@ -50,9 +52,17 @@ const HomePage = () => {
     let isMounted = true;
 
     const loadDocuments = async () => {
-      const nextDocuments = await getDocuments();
-      if (isMounted) {
-        setDocuments(normalizeDocuments(nextDocuments));
+      try {
+        const nextDocuments = await getDocuments();
+        if (isMounted) {
+          setDocuments(normalizeDocuments(nextDocuments));
+          setErrorBanner('');
+        }
+      } catch (requestError) {
+        if (isMounted) {
+          setDocuments([]);
+          setErrorBanner(getApiErrorMessage(requestError, 'Không thể tải số liệu tài liệu lúc này.'));
+        }
       }
     };
 
@@ -75,6 +85,12 @@ const HomePage = () => {
 
         if (isMounted) {
           setRecentDocuments(items);
+          setErrorBanner('');
+        }
+      } catch (requestError) {
+        if (isMounted) {
+          setRecentDocuments([]);
+          setErrorBanner(getApiErrorMessage(requestError, 'Không thể tải dữ liệu trang chủ lúc này.'));
         }
       } finally {
         if (isMounted) {
@@ -100,6 +116,12 @@ const HomePage = () => {
         const items = await getSubjectStats({ limit: 8, section: subjectTarget });
         if (isMounted) {
           setSubjectStats(items);
+          setErrorBanner('');
+        }
+      } catch (requestError) {
+        if (isMounted) {
+          setSubjectStats([]);
+          setErrorBanner(getApiErrorMessage(requestError, 'Không thể tải dữ liệu thống kê lúc này.'));
         }
       } finally {
         if (isMounted) {
@@ -125,6 +147,12 @@ const HomePage = () => {
         const items = await getAuthorStats({ limit: 6 });
         if (isMounted) {
           setAuthorStats(items);
+          setErrorBanner('');
+        }
+      } catch (requestError) {
+        if (isMounted) {
+          setAuthorStats([]);
+          setErrorBanner(getApiErrorMessage(requestError, 'Không thể tải dữ liệu tác giả lúc này.'));
         }
       } finally {
         if (isMounted) {
@@ -149,7 +177,14 @@ const HomePage = () => {
 
   const handleSearch = (event) => {
     event.preventDefault();
-    navigate(`/library?q=${encodeURIComponent(query)}`);
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery) {
+      navigate('/library');
+      return;
+    }
+
+    navigate(`/library?q=${encodeURIComponent(trimmedQuery)}`);
   };
 
   const handleBrowseSubject = (subject) => {
@@ -160,49 +195,72 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-700 to-blue-500 py-20 text-white text-center">
+      <section className="bg-gradient-to-r from-blue-700 to-indigo-600 py-20 text-white text-center shadow-lg">
         <h1 className="text-5xl font-extrabold mb-4">Thư Viện Số Trường THCS Tam Quan</h1>
-        <p className="text-xl mb-10 text-blue-100 italic">"Học, Học Nữa, Học Mãi"</p>
+        <p className="text-xl mb-8 text-blue-100 italic">"Học, Học Nữa, Học Mãi"</p>
 
         {currentUser ? (
-          <p className="text-sm md:text-base text-blue-100 mb-8">
+          <p className="text-sm md:text-base text-blue-100 mb-6">
             Đang đăng nhập với vai trò {ROLE_LABELS[currentUser.role]}.
           </p>
         ) : (
-          <p className="text-sm md:text-base text-blue-100 mb-8">
+          <p className="text-sm md:text-base text-blue-100 mb-6">
             Demo sẵn 3 vai trò: nhà trường, giáo viên và học sinh.
           </p>
         )}
         
         <form onSubmit={handleSearch} className="max-w-2xl mx-auto px-4">
-          <input 
-            type="text"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Tìm đề thi, giáo án, sách bài tập, ..." 
-            className="w-full py-4 px-8 rounded-full text-gray-800 shadow-2xl focus:ring-4 focus:ring-blue-300 outline-none"
-          />
+          <div className="relative">
+            <input 
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Tìm đề thi, giáo án, sách bài tập, ..." 
+              className="w-full py-4 px-8 pr-14 rounded-full text-gray-800 shadow-2xl focus:ring-4 focus:ring-blue-300 outline-none"
+            />
+            {query.trim() ? (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 text-slate-600 hover:bg-white transition"
+                aria-label="Xóa từ khóa"
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
         </form>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 -mt-10 relative z-10">
+      {errorBanner ? (
+        <section className="max-w-7xl mx-auto px-4 pt-6">
+          <div className="rounded-2xl bg-amber-50 text-amber-800 border border-amber-200 px-4 py-3 flex items-start justify-between gap-3">
+            <span>{errorBanner}</span>
+            <button
+              type="button"
+              onClick={() => setErrorBanner('')}
+              className="shrink-0 w-7 h-7 rounded-full bg-white/70 text-amber-800 hover:bg-white transition"
+              aria-label="Đóng thông báo lỗi"
+            >
+              ×
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="max-w-7xl mx-auto px-4 -mt-12 relative z-10">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-400 mb-1">Tổng tài liệu</p>
-            <p className="text-3xl font-black text-gray-900">{stats.documents}</p>
-          </div>
-          <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-400 mb-1">Thư viện</p>
-            <p className="text-3xl font-black text-gray-900">{stats.library}</p>
-          </div>
-          <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-400 mb-1">Đề thi</p>
-            <p className="text-3xl font-black text-gray-900">{stats.exams}</p>
-          </div>
-          <div className="bg-white rounded-2xl px-6 py-5 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-400 mb-1">Slides</p>
-            <p className="text-3xl font-black text-gray-900">{stats.slides}</p>
-          </div>
+          {[
+            { label: 'Tổng tài liệu', value: stats.documents },
+            { label: 'Thư viện', value: stats.library },
+            { label: 'Đề thi', value: stats.exams },
+            { label: 'Slides', value: stats.slides },
+          ].map((item) => (
+            <div key={item.label} className="card-surface px-6 py-5 flex flex-col gap-1">
+              <p className="text-sm text-slate-500">{item.label}</p>
+              <p className="text-3xl font-black text-slate-900">{item.value}</p>
+            </div>
+          ))}
         </div>
       </section>
 

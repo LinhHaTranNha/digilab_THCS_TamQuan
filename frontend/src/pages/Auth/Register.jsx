@@ -15,9 +15,11 @@ const RegisterPage = () => {
     confirmPassword: ''
   });
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     setError('');
 
     if (formData.password.length < 6) {
@@ -30,11 +32,15 @@ const RegisterPage = () => {
       return;
     }
 
+    setSubmitting(true);
+
     try {
       await register(formData);
       navigate('/');
     } catch (registerError) {
       setError(getApiErrorMessage(registerError, 'Không thể đăng ký tài khoản.'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -132,9 +138,10 @@ const RegisterPage = () => {
 
           <button
             type="submit"
-            className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+            disabled={submitting}
+            className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Đăng ký tài khoản
+            {submitting ? 'Đang đăng ký...' : 'Đăng ký tài khoản'}
           </button>
         </form>
 

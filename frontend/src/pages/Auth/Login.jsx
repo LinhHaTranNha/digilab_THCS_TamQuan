@@ -10,10 +10,13 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     setError('');
+    setSubmitting(true);
 
     try {
       await login(email, password);
@@ -21,6 +24,8 @@ const LoginPage = () => {
       navigate(redirectPath);
     } catch (loginError) {
       setError(getApiErrorMessage(loginError, 'Không thể đăng nhập.'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -82,9 +87,10 @@ const LoginPage = () => {
 
           <button
             type="submit"
-            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all"
+            disabled={submitting}
+            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Đăng nhập ngay
+            {submitting ? 'Đang đăng nhập...' : 'Đăng nhập ngay'}
           </button>
         </form>
 

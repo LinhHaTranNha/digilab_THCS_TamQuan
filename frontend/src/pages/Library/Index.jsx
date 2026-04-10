@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import BookCard from '../../components/cards/BookCard';
 import { getApiErrorMessage, getDocumentsBySection, getUniqueSubjects } from '../../services/apiService';
@@ -34,6 +34,7 @@ const LibraryPage = () => {
   const [saveAsDefault, setSaveAsDefault] = useState(() => window.localStorage.getItem(LIBRARY_SAVE_PREF_KEY) !== '0');
   const [saveRecentSearches, setSaveRecentSearches] = useState(() => window.localStorage.getItem(LIBRARY_RECENT_SEARCHES_PREF_KEY) !== '0');
   const [copyStatus, setCopyStatus] = useState('');
+  const previousFilterKeyRef = useRef('');
 
   useEffect(() => {
     const grade = searchParams.get('grade');
@@ -108,6 +109,8 @@ const LibraryPage = () => {
     }
   };
 
+  const filterStateKey = [selectedGrade, selectedCategory, debouncedKeyword.trim().toLowerCase(), sortBy, saveAsDefault].join('|');
+
   const activeFilters = [
     selectedGrade !== 'Tất cả' ? selectedGrade : null,
     selectedCategory !== 'Tất cả' ? selectedCategory : null,
@@ -150,6 +153,21 @@ const LibraryPage = () => {
     load();
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (!previousFilterKeyRef.current) {
+      previousFilterKeyRef.current = filterStateKey;
+      return;
+    }
+
+    if (previousFilterKeyRef.current !== filterStateKey && page !== 1) {
+      previousFilterKeyRef.current = filterStateKey;
+      setPage(1);
+      return;
+    }
+
+    previousFilterKeyRef.current = filterStateKey;
+  }, [filterStateKey, page]);
 
   useEffect(() => {
     fetchBooks(page);

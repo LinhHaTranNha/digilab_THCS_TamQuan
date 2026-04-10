@@ -248,5 +248,19 @@ export function canManageDocument(user, document) {
 }
 
 export function getApiErrorMessage(error, fallbackMessage) {
-  return error?.response?.data?.detail || fallbackMessage;
+  const responseData = error?.response?.data;
+
+  if (typeof responseData === 'string' && responseData.trim()) {
+    return responseData;
+  }
+
+  if (responseData?.detail) {
+    return responseData.detail;
+  }
+
+  if (responseData?.message) {
+    return responseData.message;
+  }
+
+  return fallbackMessage;
 }

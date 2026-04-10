@@ -1,3 +1,76 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #f7f9fc;
+    --surface: #ffffff;
+    --surface-soft: #f8fbff;
+    --text: #0f172a;
+    --text-muted: #475569;
+    --primary: #2563eb;
+    --primary-strong: #1d4ed8;
+    --ring: #93c5fd;
+    --border: #e2e8f0;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply antialiased;
+    background: radial-gradient(circle at top, #eef4ff 0%, var(--bg) 45%, #f8fafc 100%);
+    color: var(--text);
+  }
+
+  ::selection {
+    background: #bfdbfe;
+    color: #0f172a;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen;
+    background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.09), transparent 35%),
+      radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 30%);
+  }
+
+  .card-surface {
+    @apply bg-white border rounded-2xl shadow-sm;
+    border-color: var(--border);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-xl font-semibold text-white transition;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-strong) 100%);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.05);
+  }
+
+  .btn-soft {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-xl font-semibold transition border;
+    color: #1e293b;
+    border-color: var(--border);
+    background: #fff;
+  }
+
+  .btn-soft:hover {
+    background: var(--surface-soft);
+  }
+}

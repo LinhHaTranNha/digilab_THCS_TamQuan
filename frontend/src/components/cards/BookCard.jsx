@@ -2,38 +2,70 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { getSectionLabel } from '../../services/apiService';
 
+const DEFAULT_COVER = 'https://via.placeholder.com/150x200?text=No+Cover';
+
 const BookCard = ({ document }) => {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer">
-      {/* Hình ảnh sách */}
-      <div className="h-48 bg-gray-200 relative overflow-hidden">
-        <img 
-          src={document.image || "https://via.placeholder.com/150x200?text=No+Cover"} 
+    <article className="group card-surface overflow-hidden hover:-translate-y-1 hover:shadow-lg transition duration-300 cursor-pointer">
+      <div className="relative h-52 overflow-hidden bg-slate-100">
+        <img
+          src={document.image || DEFAULT_COVER}
           alt={document.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = DEFAULT_COVER;
+          }}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <span className="absolute top-2 right-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded">
-          {document.resourceType}
-        </span>
+
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/60 via-slate-900/15 to-transparent" />
+
+        <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+          <span className="px-2.5 py-1 rounded-full bg-white/95 text-slate-700 text-[10px] font-bold uppercase tracking-wide shadow-sm">
+            {getSectionLabel(document.section)}
+          </span>
+          <span className="px-2.5 py-1 rounded-full bg-blue-600 text-white text-[10px] font-bold shadow-sm">
+            {document.resourceType}
+          </span>
+        </div>
       </div>
 
-      {/* Thông tin sách */}
-      <div className="p-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">{getSectionLabel(document.section)}</p>
-        <h3 className="font-bold text-gray-800 line-clamp-2 mb-1 min-h-[3.5rem] group-hover:text-blue-600">
-          {document.title}
-        </h3>
-        <p className="text-sm text-gray-500 mb-1 italic">{document.author}</p>
-        <p className="text-sm text-gray-500 mb-4">{document.subject} - {document.grade}</p>
+      <div className="p-5 flex flex-col gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 mb-2">{document.subject} · {document.grade}</p>
+          <h3 className="text-lg font-black text-slate-900 line-clamp-2 min-h-[3.5rem] group-hover:text-blue-700 transition-colors">
+            {document.title}
+          </h3>
+        </div>
 
-        <Link
-          to={`/documents/${document.id}`}
-          className="block w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-600 hover:text-white transition-colors text-center"
-        >
-          Xem tài liệu
-        </Link>
+        <p className="text-sm text-slate-500 italic truncate">{document.author}</p>
+
+        <p className="text-sm text-slate-600 line-clamp-2 min-h-[2.75rem]">
+          {document.description || 'Tài liệu học tập được chia sẻ trong thư viện số THCS Tam Quan.'}
+        </p>
+
+        <div className="flex items-center gap-2 pt-1 mt-auto">
+          {document.pdfUrl ? (
+            <a
+              href={document.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-soft text-sm flex-1"
+            >
+              Mở PDF
+            </a>
+          ) : null}
+
+          <Link
+            to={`/documents/${document.id}`}
+            className={`btn-primary text-sm ${document.pdfUrl ? 'flex-1' : 'w-full'}`}
+          >
+            Xem chi tiết
+          </Link>
+        </div>
       </div>
-    </div>
+    </article>
   );
 };
 

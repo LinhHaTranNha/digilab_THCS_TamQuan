@@ -38,6 +38,8 @@ const ManagePage = () => {
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState('');
 
   const sectionOptions = getSectionOptionsForRole(currentUser.role);
   const manageableDocuments = useMemo(
@@ -106,8 +108,10 @@ const ManagePage = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submitting) return;
     setError('');
     setFeedback('');
+    setSubmitting(true);
 
     try {
       const savedDocument = await saveDocument(formData);
@@ -121,6 +125,8 @@ const ManagePage = () => {
       resetForm();
     } catch (submitError) {
       setError(getApiErrorMessage(submitError, 'Không thể lưu tài liệu.'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -142,9 +148,16 @@ const ManagePage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDelete = async (documentId) => {
+  const handleDelete = async (documentId, documentTitle) => {
     setFeedback('');
     setError('');
+
+    const confirmed = window.confirm(`Xóa tài liệu "${documentTitle}"?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(documentId);
 
     try {
       await deleteDocument(documentId);
@@ -155,6 +168,8 @@ const ManagePage = () => {
       setFeedback('Đã xóa tài liệu thành công.');
     } catch (deleteError) {
       setError(getApiErrorMessage(deleteError, 'Không thể xóa tài liệu.'));
+    } finally {
+      setDeletingId('');
     }
   };
 
@@ -311,9 +326,10 @@ const ManagePage = () => {
 
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
+            disabled={submitting}
+            className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {formData.id ? 'Lưu cập nhật' : 'Đăng tải tài liệu'}
+            {submitting ? 'Đang lưu...' : (formData.id ? 'Lưu cập nhật' : 'Đăng tải tài liệu')}
           </button>
         </form>
 
@@ -347,10 +363,11 @@ const ManagePage = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(document.id)}
-                      className="px-4 py-2 rounded-xl bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition"
+                      onClick={() => handleDelete(document.id, document.title)}
+                      disabled={deletingId === document.id}
+                      className="px-4 py-2 rounded-xl bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Xóa
+                      {deletingId === document.id ? 'Đang xóa...' : 'Xóa'}
                     </button>
                     <Link
                       to={`/documents/${document.id}`}

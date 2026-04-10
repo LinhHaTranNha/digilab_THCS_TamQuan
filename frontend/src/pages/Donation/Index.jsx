@@ -14,6 +14,7 @@ const DonationPage = () => {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -28,10 +29,13 @@ const DonationPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     setError('');
+    setSubmitting(true);
 
     try {
       await saveDonation(formData);
+      setError('');
       setSubmitted(true);
       setFormData({
         fullName: currentUser?.fullName || '',
@@ -43,6 +47,8 @@ const DonationPage = () => {
       setTimeout(() => setSubmitted(false), 3000);
     } catch (submitError) {
       setError(getApiErrorMessage(submitError, 'Không thể gửi biểu mẫu quyên góp.'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -152,10 +158,10 @@ const DonationPage = () => {
 
             <button 
               type="submit"
-              disabled={!canDonate}
-              className={`w-full py-3 rounded-lg font-bold text-white transition-all ${submitted ? 'bg-green-500' : 'bg-blue-600 hover:bg-blue-700'}`}
+              disabled={!canDonate || submitting}
+              className={`w-full py-3 rounded-lg font-bold text-white transition-all disabled:opacity-60 disabled:cursor-not-allowed ${submitted ? 'bg-green-500' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
-              {submitted ? 'Đã gửi thành công! ✨' : 'Gửi thông tin quyên góp'}
+              {submitted ? 'Đã gửi thành công! ✨' : (submitting ? 'Đang gửi...' : 'Gửi thông tin quyên góp')}
             </button>
           </form>
         </div>
