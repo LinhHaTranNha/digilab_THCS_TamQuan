@@ -73,4 +73,53 @@
   .btn-soft:hover {
     background: var(--surface-soft);
   }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-3 py-2 rounded-xl font-semibold transition border;
+    color: #0f172a;
+    border-color: var(--border);
+    background: transparent;
+  }
+
+  .btn-ghost:hover {
+    background: #f8fafc;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-[0.16em];
+    background: #0f172a;
+    color: #fff;
+  }
+
+  .badge-soft {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-[0.16em] border;
+    background: #f8fafc;
+    color: #1e293b;
+    border-color: var(--border);
+  }
+
+  .bubble {
+    @apply rounded-2xl p-4 shadow-sm border transition;
+    border-color: var(--border);
+  }
+
+  .bubble-assistant {
+    @apply bg-white text-slate-900;
+  }
+
+  .bubble-user {
+    background: linear-gradient(135deg, #0f172a, #111827);
+    color: #e2e8f0;
+    border-color: #0f172a;
+    box-shadow: 0 10px 25px -12px rgba(15, 23, 42, 0.7);
+  }
+
+  .doc-card {
+    @apply rounded-xl border bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md;
+    border-color: var(--border);
+  }
+
+  .section-heading {
+    @apply text-xs font-bold uppercase tracking-[0.22em] text-slate-500;
+  }
 }

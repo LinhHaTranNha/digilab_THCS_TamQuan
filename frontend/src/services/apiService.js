@@ -153,6 +153,11 @@ export async function getAuthorStats(params = {}) {
   return data?.items || [];
 }
 
+export async function getOverviewStats(params = {}) {
+  const { data } = await apiClient.get('/stats/overview', { params });
+  return data || { totals: {}, byGrade: [] };
+}
+
 export async function saveDonation(payload) {
   const { data } = await apiClient.post('/donations', {
     fullName: payload.fullName,

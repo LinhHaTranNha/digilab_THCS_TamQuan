@@ -4,6 +4,7 @@ import {
   getApiErrorMessage,
   getAuthorStats,
   getDocuments,
+  getOverviewStats,
   getSectionLabel,
   getSubjectStats,
   ROLE_LABELS,
@@ -37,6 +38,8 @@ const HomePage = () => {
   const [subjectTarget, setSubjectTarget] = useState('library');
   const [authorStats, setAuthorStats] = useState([]);
   const [authorStatsLoading, setAuthorStatsLoading] = useState(false);
+  const [overviewByGrade, setOverviewByGrade] = useState([]);
+  const [overviewLoading, setOverviewLoading] = useState(false);
   const [errorBanner, setErrorBanner] = useState('');
   const categories = [
     { n: 'Ebooks', i: '📖', c: 'bg-blue-50', path: '/library' },
@@ -162,6 +165,37 @@ const HomePage = () => {
     };
 
     loadAuthorStats();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadOverviewStats = async () => {
+      setOverviewLoading(true);
+
+      try {
+        const overview = await getOverviewStats();
+        if (isMounted) {
+          setOverviewByGrade(Array.isArray(overview.byGrade) ? overview.byGrade : []);
+          setErrorBanner('');
+        }
+      } catch (requestError) {
+        if (isMounted) {
+          setOverviewByGrade([]);
+          setErrorBanner(getApiErrorMessage(requestError, 'Không thể tải thống kê khối lớp lúc này.'));
+        }
+      } finally {
+        if (isMounted) {
+          setOverviewLoading(false);
+        }
+      }
+    };
+
+    loadOverviewStats();
 
     return () => {
       isMounted = false;
@@ -366,6 +400,41 @@ const HomePage = () => {
         ) : (
           <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6 text-center text-gray-600">
             Chưa có dữ liệu môn học để hiển thị.
+          </div>
+        )}
+      </section>
+
+      <section className="max-w-7xl mx-auto pb-12 px-4">
+        <div className="mb-6">
+          <p className="text-sm font-semibold text-violet-600 uppercase tracking-[0.2em]">Theo khối lớp</p>
+          <h2 className="text-2xl font-black text-gray-900">Thống kê tài liệu theo khối</h2>
+          <p className="text-gray-500 mt-2">Tổng hợp nhanh số lượng tài liệu hiện có cho từng khối.</p>
+        </div>
+
+        {overviewLoading ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="h-24 rounded-2xl bg-gray-100 animate-pulse" />
+            ))}
+          </div>
+        ) : overviewByGrade.length > 0 ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {overviewByGrade.map((item) => (
+              <button
+                key={item.grade}
+                type="button"
+                onClick={() => navigate(`/library?grade=${encodeURIComponent(item.grade)}`)}
+                className="text-left bg-white border border-gray-100 rounded-2xl p-5 hover:border-violet-200 hover:shadow-md transition"
+              >
+                <p className="text-lg font-bold text-gray-900">{item.grade}</p>
+                <p className="text-sm text-gray-500 mt-2">{item.documentCount} tài liệu</p>
+                <p className="text-xs text-violet-600 font-semibold mt-3">Mở thư viện theo khối →</p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-6 text-center text-gray-600">
+            Chưa có dữ liệu thống kê theo khối lớp.
           </div>
         )}
       </section>

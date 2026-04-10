@@ -85,3 +85,48 @@ def get_author_stats(
     ]
 
     return {'items': items}
+
+
+@router.get('/overview')
+def get_overview_stats(
+    db: Annotated[Session, Depends(get_db)],
+    grade: str | None = Query(default=None),
+) -> dict[str, object]:
+    grade_filter = [Document.grade.in_([grade, 'Tất cả'])] if grade and grade != 'Tất cả' else []
+
+    totals = {
+        'documents': db.scalar(select(func.count(Document.id)).where(*grade_filter)) or 0,
+        'library': db.scalar(
+            select(func.count(Document.id)).where(Document.section == 'library', *grade_filter)
+        ) or 0,
+        'exams': db.scalar(
+            select(func.count(Document.id)).where(Document.section == 'exams', *grade_filter)
+        ) or 0,
+        'slides': db.scalar(
+            select(func.count(Document.id)).where(Document.section == 'slides', *grade_filter)
+        ) or 0,
+    }
+
+    by_grade_rows = db.execute(
+        select(
+            Document.grade.label('grade'),
+            func.count(Document.id).label('document_count'),
+        )
+        .where(*grade_filter)
+        .group_by(Document.grade)
+        .order_by(Document.grade.asc())
+    ).all()
+
+    by_grade = [
+        {
+            'grade': row.grade,
+            'documentCount': int(row.document_count),
+        }
+        for row in by_grade_rows
+        if row.grade and row.grade.strip()
+    ]
+
+    return {
+        'totals': totals,
+        'byGrade': by_grade,
+    }

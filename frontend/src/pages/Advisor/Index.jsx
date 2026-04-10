@@ -49,6 +49,7 @@ const ADVISOR_PINNED_PROMPTS_KEY = 'digilib-advisor-pinned-prompts';
 const ADVISOR_KEEP_QUESTION_PREF_KEY = 'digilib-advisor-keep-question';
 const ADVISOR_KEEP_FILTERS_PREF_KEY = 'digilib-advisor-keep-filters';
 const ADVISOR_CUSTOM_PRESETS_KEY = 'digilib-advisor-custom-presets';
+const ADVISOR_IMPORT_HISTORY_KEY = 'digilib-advisor-import-history';
 
 // Advisor UI rule: keep this page minimal and stable.
 // Primary flow only: choose filters -> ask -> get answer.
@@ -149,7 +150,24 @@ const AdvisorPage = () => {
   const [importWarnings, setImportWarnings] = useState([]);
   const [importWarningStats, setImportWarningStats] = useState({ skipped: 0, normalized: 0, duplicate: 0 });
   const [lastImportAt, setLastImportAt] = useState('');
-  const [importHistory, setImportHistory] = useState([]);
+  const [importHistory, setImportHistory] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(ADVISOR_IMPORT_HISTORY_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed
+            .slice(0, 3)
+            .map((entry) => ({
+              ...entry,
+              presetsSnapshot: Array.isArray(entry?.presetsSnapshot) ? entry.presetsSnapshot.slice(0, 6) : [],
+            }))
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [expandedHistoryIndex, setExpandedHistoryIndex] = useState(-1);
   const [showImportWarnings, setShowImportWarnings] = useState(true);
   const [warningFilter, setWarningFilter] = useState('all');
   const [expandedWarnings, setExpandedWarnings] = useState(false);
@@ -225,6 +243,31 @@ const AdvisorPage = () => {
   useEffect(() => {
     window.localStorage.setItem(ADVISOR_KEEP_FILTERS_PREF_KEY, keepFiltersAfterSend ? '1' : '0');
   }, [keepFiltersAfterSend]);
+
+  useEffect(() => {
+    window.localStorage.setItem(ADVISOR_IMPORT_HISTORY_KEY, JSON.stringify(importHistory.slice(0, 3)));
+  }, [importHistory]);
+
+  const restoreImportHistoryEntry = (index) => {
+    const entry = importHistory[index];
+    if (!entry || !Array.isArray(entry.presetsSnapshot) || !entry.presetsSnapshot.length) {
+      setFilterNotice('Không tìm thấy preset snapshot để khôi phục.');
+      window.setTimeout(() => setFilterNotice(''), 2200);
+      return;
+    }
+
+    const restoredPresets = entry.presetsSnapshot.slice(0, 6);
+    setCustomPresets(restoredPresets);
+    window.localStorage.setItem(ADVISOR_CUSTOM_PRESETS_KEY, JSON.stringify(restoredPresets));
+
+    setFilterNotice(
+      `Đã khôi phục presets từ ${entry.time} (${entry.mode === 'replace' ? 'thay thế' : 'nối thêm'}).`
+    );
+    window.setTimeout(() => setFilterNotice(''), 2200);
+    setShowImportWarnings(true);
+    setWarningFilter('all');
+    setExpandedWarnings(false);
+  };
 
   useEffect(() => {
     if (!importWarnings.length) {
@@ -588,6 +631,8 @@ const AdvisorPage = () => {
           imported: importedCount,
           duplicates: duplicateCount,
           total: finalCount,
+          warnings: warnings.slice(0, 6),
+          presetsSnapshot: merged,
         },
         ...previous,
       ].slice(0, 3));
@@ -704,23 +749,73 @@ const AdvisorPage = () => {
     }
   };
 
+  const copyImportHistoryEntry = async (entry) => {
+    if (!entry) {
+      return;
+    }
+
+    const payload = [
+      `Thời gian: ${entry.time}`,
+      `Chế độ: ${entry.mode === 'replace' ? 'thay thế' : 'nối thêm'}`,
+      `Nhập: ${entry.imported}`,
+      `Trùng: ${entry.duplicates}`,
+      `Tổng: ${entry.total}`,
+      entry.warnings?.length ? '\nCảnh báo:' : null,
+      entry.warnings?.length ? entry.warnings.map((warning, index) => `${index + 1}. ${warning}`).join('\n') : null,
+    ].filter(Boolean).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopyNotice('Đã sao chép lịch sử nhập này.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    } catch {
+      setCopyNotice('Không thể sao chép lịch sử nhập.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    }
+  };
+
+  const copyImportHistorySnapshot = async (entry) => {
+    if (!entry?.presetsSnapshot?.length) {
+      setCopyNotice('Không có snapshot để sao chép.');
+      window.setTimeout(() => setCopyNotice(''), 2000);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(entry.presetsSnapshot, null, 2));
+      setCopyNotice('Đã sao chép snapshot JSON của lần nhập này.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    } catch {
+      setCopyNotice('Không thể sao chép snapshot JSON.');
+      window.setTimeout(() => setCopyNotice(''), 2200);
+    }
+  };
+
   return (
-    <div className="h-screen overflow-hidden bg-slate-50">
-      <section className="h-full overflow-hidden bg-[radial-gradient(circle_at_top,_#e8f0ff,_#f8fbff_45%,_#f8fafc)] border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 py-6 grid lg:grid-cols-[0.88fr,1.12fr] gap-5 items-stretch h-full overflow-hidden">
-          <div className="overflow-y-auto pr-1 space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-blue-600">Trợ lý AI</p>
-            <h1 className="text-3xl font-black text-slate-900">Tư vấn tài liệu học tập theo nhu cầu</h1>
-            <p className="text-slate-600 leading-8">
-              Khung chat này chỉ gọi tới backend của DigiLib. Backend sẽ chọn shortlist tài liệu từ cơ sở dữ liệu rồi mới gửi metadata đó sang mô hình AI.
-            </p>
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              {helperText}
+    <div className="min-h-screen bg-slate-50">
+      <section className="min-h-screen bg-[radial-gradient(circle_at_top,_#dbeafe_0%,_#eff6ff_28%,_#f8fafc_62%)] border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 py-6 lg:py-8 grid lg:grid-cols-[0.84fr,1.16fr] gap-5 items-stretch min-h-screen">
+          <div className="overflow-y-auto pr-1 space-y-4">
+            <div className="card-surface overflow-hidden">
+              <div className="px-5 py-5 sm:px-6 sm:py-6 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white">
+                <p className="text-[11px] uppercase tracking-[0.34em] text-blue-200/90 mb-3">Trợ lý AI</p>
+                <h1 className="text-3xl sm:text-[2rem] font-black leading-tight">Tư vấn tài liệu học tập theo nhu cầu</h1>
+                <p className="mt-3 text-sm sm:text-[15px] leading-7 text-slate-200/90 max-w-2xl">
+                  Khung chat này chỉ gọi tới backend của DigiLib. Backend sẽ chọn shortlist tài liệu từ cơ sở dữ liệu rồi mới gửi metadata đó sang mô hình AI.
+                </p>
+                <div className="mt-4 inline-flex max-w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-blue-50 shadow-inner backdrop-blur-sm">
+                  {helperText}
+                </div>
+              </div>
             </div>
 
-            <div className="card-surface p-5 space-y-5">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Bộ lọc tìm tài liệu</p>
+            <div className="card-surface p-5 sm:p-6 space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="section-heading">Bộ lọc tìm tài liệu</p>
+                  <p className="mt-2 text-sm text-slate-500">Giữ nguyên cấu trúc lọc, chỉ tối ưu độ rõ ràng và khoảng thở khi thao tác.</p>
+                </div>
+                <span className="badge-soft">{activePresetLabel}</span>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
@@ -907,12 +1002,77 @@ const AdvisorPage = () => {
                 )}
 
                 {importHistory.length > 0 && (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                    <p className="font-semibold mb-2">Lịch sử nhập gần đây</p>
-                    <ul className="space-y-1 text-xs">
+                  <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <p className="font-semibold text-slate-800">Lịch sử nhập gần đây</p>
+                        <p className="text-xs text-slate-500 mt-1">Giữ nguyên dữ liệu hiện có, chỉ làm rõ hierarchy và nhóm thao tác.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImportHistory([]);
+                          setExpandedHistoryIndex(-1);
+                          setImportWarnings([]);
+                          setLastImportAt('');
+                        }}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-700 transition"
+                      >
+                        Xóa lịch sử
+                      </button>
+                    </div>
+                    <ul className="space-y-2 text-xs">
                       {importHistory.map((item, index) => (
-                        <li key={`${item.time}-${index}`}>
-                          {item.time} · {item.mode === 'replace' ? 'thay thế' : 'nối thêm'} · nhập {item.imported} · trùng {item.duplicates} · tổng {item.total}
+                        <li key={`${item.time}-${index}`} className="rounded-2xl border border-slate-200 bg-white px-3 py-3 flex flex-col gap-2 shadow-sm">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="badge-soft normal-case tracking-normal text-[11px]">
+                              {item.time}
+                            </span>
+                            <span className="text-slate-600 font-medium">
+                              {item.mode === 'replace' ? 'thay thế' : 'nối thêm'} · nhập {item.imported} · trùng {item.duplicates} · tổng {item.total}
+                            </span>
+                            {item.warnings?.length ? (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedHistoryIndex((prev) => (prev === index ? -1 : index))}
+                                className="px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                              >
+                                {expandedHistoryIndex === index ? 'Thu gọn' : 'Xem cảnh báo'}
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => copyImportHistoryEntry(item)}
+                              className="px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                            >
+                              Sao chép mục này
+                            </button>
+                            {item.presetsSnapshot?.length ? (
+                              <button
+                                type="button"
+                                onClick={() => copyImportHistorySnapshot(item)}
+                                className="px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                              >
+                                Sao chép JSON
+                              </button>
+                            ) : null}
+                            {item.presetsSnapshot?.length ? (
+                              <button
+                                type="button"
+                                onClick={() => restoreImportHistoryEntry(index)}
+                                className="px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-100 transition"
+                              >
+                                Khôi phục
+                              </button>
+                            ) : null}
+                          </div>
+                          {expandedHistoryIndex === index && item.warnings?.length ? (
+                            <ul className="list-disc ml-5 space-y-1 text-[11px] text-amber-800">
+                              {item.warnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                              ))}
+                            </ul>
+                          ) : null}
                         </li>
                       ))}
                     </ul>
@@ -928,23 +1088,35 @@ const AdvisorPage = () => {
             </div>
           </div>
 
-          <div className="card-surface p-5 flex flex-col min-h-[600px] max-h-[78vh] gap-4">
+          <div className="card-surface p-4 sm:p-5 flex flex-col min-h-[600px] lg:min-h-0 lg:max-h-[calc(100vh-4rem)] gap-4">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+              <div>
+                <p className="section-heading">Khung trao đổi</p>
+                <h2 className="mt-2 text-xl font-black text-slate-900">Trò chuyện với trợ lý</h2>
+                <p className="mt-1 text-sm text-slate-500">Giữ nguyên flow hiện tại, chỉ làm sạch thị giác để đọc và thao tác dễ hơn.</p>
+              </div>
+              <div className="hidden sm:flex flex-col items-end gap-2 text-right">
+                <span className="badge">{messages.length} tin nhắn</span>
+                <span className="text-xs text-slate-400">Bộ lọc hiện tại: {activePresetLabel}</span>
+              </div>
+            </div>
 
-            <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex flex-col flex-1 min-h-0 gap-4">
               <div
                 ref={messagesContainerRef}
-                className="space-y-4 flex-1 min-h-[220px] overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/60 p-3 pr-2 custom-scrollbar"
+                className="space-y-4 flex-1 min-h-[220px] overflow-y-auto rounded-[28px] border border-slate-200 bg-white/70 p-3 sm:p-4 pr-2 custom-scrollbar shadow-inner"
               >
                 {messages.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-9 text-center text-slate-500 text-sm">
+                  <div className="rounded-[24px] border border-dashed border-slate-300 bg-gradient-to-br from-white to-slate-50 px-6 py-10 text-center text-slate-500 text-sm">
+                    <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-xl">💬</div>
                     Chưa có hội thoại nào. Hãy bắt đầu bằng một câu hỏi về nhu cầu học tập của học sinh.
                   </div>
                 ) : null}
 
                 {messages.map((message, index) => (
-                  <div key={message.id} className={`rounded-2xl p-4 shadow-sm border ${message.role === 'user' ? 'bg-slate-800 text-white border-slate-800 ml-auto max-w-[85%]' : 'bg-white border-slate-200 mr-auto max-w-[95%]'}`}>
+                  <div key={message.id} className={`bubble ${message.role === 'user' ? 'bubble-user ml-auto max-w-[85%]' : 'bubble-assistant mr-auto max-w-[95%]'}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                      <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${message.role === 'user' ? 'text-slate-300' : 'text-blue-600'}`}>
+                      <p className={`text-[11px] font-bold uppercase tracking-[0.22em] ${message.role === 'user' ? 'text-slate-300' : 'text-blue-700'}`}>
                         {message.role === 'user' ? 'Bạn' : 'Trợ lý AI'}
                       </p>
                       {message.appliedFilters ? (
@@ -962,12 +1134,12 @@ const AdvisorPage = () => {
                     <p className={`text-sm whitespace-pre-line leading-relaxed ${message.role === 'user' ? 'text-slate-100' : 'text-slate-700'}`}>{message.text}</p>
 
                     {message.role === 'assistant' ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2.5">
                         {message.appliedFilters ? (
                           <button
                             type="button"
                             onClick={() => applyFiltersFromMessage(message.appliedFilters)}
-                            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                            className="btn-ghost text-[11px] px-3 py-1.5"
                           >
                             Dùng lại bộ lọc
                           </button>
@@ -975,14 +1147,14 @@ const AdvisorPage = () => {
                         <button
                           type="button"
                           onClick={() => handleCopyAnswer(message.text, `${message.id}-text`, message.appliedFilters)}
-                          className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                          className="btn-ghost text-[11px] px-3 py-1.5"
                         >
                           {copiedMessageId === `${message.id}-text` ? 'Đã chép' : 'Chép câu trả lời'}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleCopyAnswerWithDocuments(message.text, message.recommendedDocuments || [], `${message.id}-bundle`, message.appliedFilters)}
-                          className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                          className="btn-ghost text-[11px] px-3 py-1.5"
                         >
                           {copiedMessageId === `${message.id}-bundle` ? 'Đã chép' : 'Chép kèm tài liệu'}
                         </button>
@@ -998,7 +1170,7 @@ const AdvisorPage = () => {
                               `${message.id}-exchange`
                             );
                           }}
-                          className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold hover:bg-slate-100 transition"
+                          className="btn-ghost text-[11px] px-3 py-1.5"
                         >
                           {copiedMessageId === `${message.id}-exchange` ? 'Đã chép' : 'Chép cả trao đổi'}
                         </button>
@@ -1008,14 +1180,14 @@ const AdvisorPage = () => {
                     {message.recommendedDocuments?.length ? (
                       <div className="mt-6 grid gap-3 sm:grid-cols-2">
                         {message.recommendedDocuments.map((document) => (
-                          <div key={document.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                            <p className="text-[9px] uppercase tracking-wider text-slate-400 mb-1">{getSectionLabel(document.section)}</p>
+                          <div key={document.id} className="doc-card">
+                            <p className="text-[9px] uppercase tracking-[0.14em] text-slate-400 mb-1">{getSectionLabel(document.section)}</p>
                             <h3 className="text-xs font-bold text-slate-900 mb-1 line-clamp-1">{document.title}</h3>
                             <p className="text-[10px] text-slate-500 mb-2">{document.subject} · {document.grade}</p>
                             <div className="flex gap-2">
                               <Link
                                 to={`/documents/${document.id}`}
-                                className="px-2 py-1 rounded-md bg-blue-600 text-white text-[10px] font-bold hover:bg-blue-700 transition"
+                                className="btn-primary text-[10px] px-2.5 py-1.5 rounded-lg"
                               >
                                 Xem
                               </Link>
@@ -1023,7 +1195,7 @@ const AdvisorPage = () => {
                                 href={document.pdfUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="px-2 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold hover:bg-slate-200 transition"
+                                className="btn-soft text-[10px] px-2.5 py-1.5 rounded-lg"
                               >
                                 PDF
                               </a>
@@ -1034,12 +1206,12 @@ const AdvisorPage = () => {
                     ) : null}
 
                     {message.planBySubject?.length ? (
-                      <div className="mt-4 space-y-2">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Kế hoạch học tập</p>
-                        <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="mt-4 space-y-2.5">
+                        <p className="section-heading">Kế hoạch học tập</p>
+                        <div className="grid gap-2.5 sm:grid-cols-2">
                           {message.planBySubject.map((plan) => (
-                            <div key={`${message.id}-${plan.subject}`} className="rounded-xl border border-slate-100 bg-white/50 p-2.5">
-                              <p className="text-[11px] font-bold text-slate-900 mb-0.5">{plan.subject}</p>
+                            <div key={`${message.id}-${plan.subject}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                              <p className="text-[11px] font-bold text-slate-900 mb-1">{plan.subject}</p>
                               <p className="text-[10px] text-slate-600 line-clamp-2 leading-relaxed">{plan.recommendation}</p>
                             </div>
                           ))}
@@ -1069,6 +1241,7 @@ const AdvisorPage = () => {
                 <label className="block text-sm font-semibold text-slate-700">
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <span>Nhập câu hỏi</span>
+                    <span className="text-xs text-slate-400">Shift+Enter xuống dòng · Enter gửi</span>
                   </div>
                   <div className="mt-2 flex items-end gap-3">
                     <textarea
@@ -1077,7 +1250,7 @@ const AdvisorPage = () => {
                       onKeyDown={handleQuestionKeyDown}
                       rows="4"
                       maxLength={500}
-                      placeholder="Gõ câu hỏi... (Enter để gửi, Shift+Enter xuống dòng)"
+                      placeholder="Gõ câu hỏi cho trợ lý..."
                       className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white shadow-sm outline-none transition focus:ring-2 focus:ring-blue-500 resize-none"
                     />
                     <button
@@ -1089,9 +1262,6 @@ const AdvisorPage = () => {
                     </button>
                   </div>
                 </label>
-
-
-
 
                 {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-red-700">{error}</div> : null}
 
